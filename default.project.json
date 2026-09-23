@@ -4,68 +4,85 @@
     "$className": "DataModel",
 
     "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      
+      "Config": {
+        "$path": "Game/Config"
+      },
+      "Modules": {
+        "$path": "Game/Client/Modules"
+      },
+      "Enums": {
+        "$path": "Game/Enums"
+      },
+      "Util": {
+        "$path": "Game/Client/Util"
+      },
+      "UI": {
+        "$path": "Game/Client/UI"
+      },
+
+      "VIDK": {
+        "$className": "Folder",
+        "LMCurrency": { "$path": "VIDK/Client/Modules/LMCurrency.luau" }
+        
+      },
+
       "Shared": {
-        "$path": "src/shared"
+        "$className": "Folder"
+      },
+
+      "VIDKPackages": {
+        "$path": "VIDK/Packages"
+      },
+
+      "Packages": {
+        "$path": "Packages"
+      }
+    },
+
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      
+      "Modules": {
+        "$className": "Folder",
+        "$path": "Game/Server/Modules"
+      },
+      
+      "VIDK": {
+          "$className": "Folder",
+
+          "SMProfile": { "$path": "VIDK/Server/Modules/SMProfile.luau" },
+          "SMCurrency": { "$path": "VIDK/Server/Modules/SMCurrency.luau" }
+
       }
     },
 
     "ServerScriptService": {
+      "$className": "ServerScriptService",
+      
       "Server": {
-        "$path": "src/server"
+        "$path": "Game/Server/Scripts"
+      },
+      "VIDKServer": {
+        "$className": "Folder",
+
+        "ServerInit": { "$path": "VIDK/Server/Scripts/ServerInit.server.luau" }
       }
     },
 
     "StarterPlayer": {
       "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        
         "Client": {
-          "$path": "src/client"
-        }
-      }
-    },
+          "$path": "Game/Client/Scripts"
+        },
+        "VIDKClient": {
+          "$className": "Folder",
 
-    "Workspace": {
-      "$properties": {
-        "FilteringEnabled": true
-      },
-      "Baseplate": {
-        "$className": "Part",
-        "$properties": {
-          "Anchored": true,
-          "Color": [
-            0.38823,
-            0.37254,
-            0.38823
-          ],
-          "Locked": true,
-          "Position": [
-            0,
-            -10,
-            0
-          ],
-          "Size": [
-            512,
-            20,
-            512
-          ]
+          "ClientInit": { "$path": "VIDK/Client/Scripts/ClientInit.client.luau" }
         }
-      }
-    },
-    "Lighting": {
-      "$properties": {
-        "Ambient": [
-          0,
-          0,
-          0
-        ],
-        "Brightness": 2,
-        "GlobalShadows": true,
-        "Outlines": false,
-        "Technology": "Voxel"
-      }
-    },
-    "SoundService": {
-      "$properties": {
-        "RespectFilteringEnabled": true
       }
     }
   }
