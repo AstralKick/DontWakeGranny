@@ -1,0 +1,3 @@
+[submodule "VIDK"]
+	path = VIDK
+	url = https://github.com/EpicStudios-gg/VIDK
