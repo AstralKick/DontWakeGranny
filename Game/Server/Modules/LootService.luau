@@ -34,7 +34,11 @@ local LootPicked = Net.Event("LootPicked") -- -> picker: (name, baseValue, isPri
 local Banked = Net.Event("Banked") -- -> banker: (candy, count, reason)
 local SearchResult = Net.Event("SearchResult") -- -> searcher: (foundName?)
 
-type Item = { Key: string, Name: string, Value: number, Slots: number, Heavy: boolean, Prize: boolean }
+type Item = { Key: string, Name: string, Value: number, Slots: number, Heavy: boolean, Prize: boolean, ListId: string? }
+
+-- Tonight's list (NightConfig.ListCount): the Prize + ListItems. Stash all = the night ends early.
+type ListEntry = { Id: string, Key: string, Name: string, Prize: boolean, Spawn: BasePart, State: string, Holder: string }
+local nightList: { ListEntry } = {}
 
 local carry: { [Player]: { Item } } = {}
 local active: Folder
@@ -55,6 +59,41 @@ local function matchState(key: string, value: any)
 	if ms then
 		ms:SetAttribute(key, value)
 	end
+end
+
+-- MatchState.List = JSON [{Name, State ("Hidden"|"Carried"|"Stashed"), Holder, Prize}] for the HUD.
+local function publishList()
+	local out = {}
+	for _, e in nightList do
+		table.insert(out, { Name = e.Name, State = e.State, Holder = e.Holder, Prize = e.Prize })
+	end
+	matchState("List", if #out > 0 then HttpService:JSONEncode(out) else "")
+end
+
+local function listEntry(id: string?): ListEntry?
+	if not id then
+		return nil
+	end
+	for _, e in nightList do
+		if e.Id == id then
+			return e
+		end
+	end
+	return nil
+end
+
+local function listStashedCount(): number
+	local n = 0
+	for _, e in nightList do
+		if e.State == "Stashed" then
+			n += 1
+		end
+	end
+	return n
+end
+
+function LootService:GetList(): { ListEntry }
+	return nightList
 end
 
 local function areaOpen(part: Instance): boolean
@@ -236,9 +275,18 @@ local function tryAdd(p: Player, item: Item): boolean
 	return true
 end
 
-local function makeItem(key: string, isPrize: boolean): Item
-	local def = if isPrize then LootConfig.Prizes[key] else LootConfig.Items[key]
-	return { Key = key, Name = def.Name, Value = def.Value, Slots = def.Slots or 1, Heavy = def.Heavy == true, Prize = isPrize }
+local function defFor(key: string, isPrize: boolean, listId: string?): any
+	if isPrize then
+		return LootConfig.Prizes[key]
+	elseif listId then
+		return LootConfig.ListItems[key]
+	end
+	return LootConfig.Items[key]
+end
+
+local function makeItem(key: string, isPrize: boolean, listId: string?): Item
+	local def = defFor(key, isPrize, listId)
+	return { Key = key, Name = def.Name, Value = def.Value, Slots = def.Slots or 1, Heavy = def.Heavy == true, Prize = isPrize, ListId = listId }
 end
 
 local function validPicker(p: Player, part: BasePart?, maxDist: number): boolean
@@ -251,14 +299,24 @@ local function validPicker(p: Player, part: BasePart?, maxDist: number): boolean
 end
 
 -- Spawns a pickup model at cf with a Steal prompt.
-local function spawnPickup(key: string, isPrize: boolean, cf: CFrame, spawnPart: BasePart?): Model
-	local def = if isPrize then LootConfig.Prizes[key] else LootConfig.Items[key]
+local function spawnPickup(key: string, isPrize: boolean, cf: CFrame, spawnPart: BasePart?, listId: string?): Model
+	local def = defFor(key, isPrize, listId)
 	local model = buildVisual(def.Visual, def.Name)
 	model:PivotTo(cf * CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0))
 	model:SetAttribute("LootKey", key)
 	model:SetAttribute("Prize", isPrize)
+	model:SetAttribute("ListId", listId)
 	model.Parent = active
-	if isPrize then
+	if listId and not isPrize then
+		-- On tonight's list: a mint sparkle + soft glow so it reads as "this one!".
+		glint(model, Color3.fromRGB(156, 197, 161), 5)
+		local light = Instance.new("PointLight")
+		light.Color = Color3.fromRGB(156, 197, 161)
+		light.Range = 6
+		light.Brightness = 0.7
+		light.Shadows = false
+		light.Parent = model.PrimaryPart
+	elseif isPrize then
 		glint(model, Color3.fromRGB(255, 214, 110), 6)
 		local light = Instance.new("PointLight")
 		light.Color = Color3.fromRGB(255, 200, 120)
@@ -273,11 +331,11 @@ local function spawnPickup(key: string, isPrize: boolean, cf: CFrame, spawnPart:
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.ActionText = if isPrize then "Steal the Prize" else "Steal"
 	prompt.ObjectText = `{def.Name}  ·  {def.Value} 🍬`
-	prompt.HoldDuration = if isPrize then 1.1 else 0
+	prompt.HoldDuration = if isPrize then 1.1 elseif listId then 0.5 else 0
 	prompt.MaxActivationDistance = 8
 	prompt.RequiresLineOfSight = false -- multi-part loot models would block their own sight line
 	prompt.Style = Enum.ProximityPromptStyle.Custom
-	prompt:SetAttribute("Kind", if isPrize then "Prize" else "Loot")
+	prompt:SetAttribute("Kind", if isPrize then "Prize" elseif listId then "List" else "Loot")
 	-- Right over the item (it glints, players look at it); just a hair above so it doesn't clip.
 	local over = Instance.new("Attachment")
 	over.Name = "PromptAnchor"
@@ -290,7 +348,7 @@ local function spawnPickup(key: string, isPrize: boolean, cf: CFrame, spawnPart:
 		if taken or not validPicker(p, model.PrimaryPart, 11) then
 			return
 		end
-		local item = makeItem(key, isPrize)
+		local item = makeItem(key, isPrize, listId)
 		if not tryAdd(p, item) then
 			return
 		end
@@ -304,10 +362,18 @@ local function spawnPickup(key: string, isPrize: boolean, cf: CFrame, spawnPart:
 		if (DataService:Get(p, "HighestNight") or 0) == 0 then
 			shared("Analytics").Onboarding(p, "FirstLoot")
 		end
+		local entry = listEntry(listId)
+		if entry then
+			entry.State = "Carried"
+			entry.Holder = p.DisplayName
+			publishList()
+		end
 		if isPrize then
 			matchState("PrizeState", "Carried")
 			matchState("PrizeHolder", p.DisplayName)
 			Notify.Toast("all", `{p.DisplayName} grabbed {def.Name}! Get it to the car!`, "Candy")
+		elseif entry then
+			Notify.Toast("all", `{p.DisplayName} grabbed {def.Name} from the list! Stash it in the trunk!`, "Candy")
 		end
 	end)
 	return model
@@ -322,10 +388,15 @@ function LootService:BankAll(p: Player, reason: string): number
 	end
 	local base = 0
 	local prizes = 0
+	local listed: { ListEntry } = {}
 	for _, it in list do
 		base += it.Value
 		if it.Prize then
 			prizes += 1
+		end
+		local e = listEntry(it.ListId)
+		if e then
+			table.insert(listed, e)
 		end
 	end
 	local candy = math.floor(base * LootService:ValueMult(p))
@@ -341,6 +412,21 @@ function LootService:BankAll(p: Player, reason: string): number
 		DataService:IncStat(p, "PrizesBanked", prizes)
 		svc("RewardsService"):QuestProgress(p, "StealPrize", prizes)
 		matchState("PrizeState", "Banked")
+	end
+	if #listed > 0 then
+		for _, e in listed do
+			e.State = "Stashed"
+			e.Holder = p.DisplayName
+		end
+		publishList()
+		local done, total = listStashedCount(), #nightList
+		if done >= total then
+			-- Everything on tonight's list is in the trunk: the night ends early.
+			svc("MatchService"):ListStolen(p)
+		else
+			Notify.Banner("all", `{done} / {total} STASHED`, `{p.DisplayName} got {listed[1].Name}{if #listed > 1 then ` + {#listed - 1} more` else ""} into the trunk.`, Color3.fromRGB(156, 197, 161))
+		end
+	elseif prizes > 0 then
 		Notify.Banner("all", "PRIZE STOLEN!", `{p.DisplayName} got it out.`, Color3.fromRGB(224, 176, 79))
 	end
 	svc("RewardsService"):CheckAchievements(p)
@@ -348,6 +434,20 @@ function LootService:BankAll(p: Player, reason: string): number
 	return candy
 end
 
+-- Studio (DebugService "stealall"): pick up every list item that's still out and stash it.
+function LootService:DebugStealList(p: Player)
+	for _, m in active:GetChildren() do
+		local id = m:GetAttribute("ListId")
+		local e = listEntry(id)
+		if e and e.State == "Hidden" then
+			m:Destroy()
+			table.insert(carry[p], makeItem(e.Key, e.Prize, e.Id))
+			e.State = "Carried"
+			e.Holder = p.DisplayName
+		end
+	end
+	LootService:BankAll(p, "Trunk")
+end
 -- ------------------------------------------------------------------ getting caught
 
 -- Returns (candyValueLost, itemCount). Drops a grabbable pillowcase for teammates.
@@ -367,18 +467,34 @@ function LootService:OnCaught(p: Player): (number, number)
 	carry[p] = {}
 	refreshAttrs(p)
 
-	-- Prizes go back where Grandma keeps them.
+	-- The Prize and tonight's list items go back where Grandma keeps them.
 	local keep: { Item } = {}
+	local returned = false
 	for _, it in list do
-		if it.Prize then
+		local e = listEntry(it.ListId)
+		if e and svc("MatchService"):GetPhase() == "Night" then
+			spawnPickup(e.Key, e.Prize, e.Spawn.CFrame, e.Spawn, e.Id)
+			e.State = "Hidden"
+			e.Holder = ""
+			returned = true
+			if e.Prize then
+				matchState("PrizeState", "Hidden")
+				matchState("PrizeHolder", "")
+			end
+		elseif it.Prize then
 			if prizeSpawnPart and prizeKey then
 				spawnPickup(prizeKey, true, prizeSpawnPart.CFrame, prizeSpawnPart)
 				matchState("PrizeState", "Hidden")
 				matchState("PrizeHolder", "")
 			end
+		elseif e then
+			-- list item lost outside the night: nothing to put back
 		else
 			table.insert(keep, it)
 		end
+	end
+	if returned then
+		publishList()
 	end
 
 	local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -589,17 +705,96 @@ function LootService:SpawnForNight(n: number, nightCfg: any)
 			table.insert(openPrize, s)
 		end
 	end
+	table.clear(nightList)
 	if #prizePool > 0 and #openPrize > 0 and not nightCfg.Finale then
 		prizeKey = prizePool[rng:NextInteger(1, #prizePool)]
 		prizeSpawnPart = openPrize[rng:NextInteger(1, #openPrize)]
-		spawnPickup(prizeKey :: string, true, (prizeSpawnPart :: BasePart).CFrame, prizeSpawnPart)
+		spawnPickup(prizeKey :: string, true, (prizeSpawnPart :: BasePart).CFrame, prizeSpawnPart, "Prize")
 		matchState("PrizeName", LootConfig.Prizes[prizeKey :: string].Name)
 		matchState("PrizeState", "Hidden")
 		matchState("PrizeHolder", "")
+		table.insert(nightList, {
+			Id = "Prize", Key = prizeKey :: string, Name = LootConfig.Prizes[prizeKey :: string].Name,
+			Prize = true, Spawn = prizeSpawnPart :: BasePart, State = "Hidden", Holder = "",
+		})
 	else
 		matchState("PrizeName", "")
 		matchState("PrizeState", "")
 	end
+
+	-- Tonight's list: the Prize + (ListCount - 1) of Grandma's things, in riskier rooms,
+	-- one per room where possible, on spawn points regular loot didn't take.
+	if not nightCfg.Finale and #nightList > 0 then
+		local want = math.max(0, (nightCfg.ListCount or 3) - #nightList)
+		local keys = {}
+		for k, def in LootConfig.ListItems do
+			if (def.MinNight or 1) <= n then
+				table.insert(keys, k)
+			end
+		end
+		table.sort(keys)
+		for i = #keys, 2, -1 do
+			local j = rng:NextInteger(1, i)
+			keys[i], keys[j] = keys[j], keys[i]
+		end
+		local ps = svc("PlayerStateService")
+		local function candidates(minDanger: number): { BasePart }
+			local out = {}
+			for _, s in lootSpawns do
+				if not used[s] and areaOpen(s) and (s:GetAttribute("Danger") or 1) >= minDanger then
+					table.insert(out, s)
+				end
+			end
+			for i = #out, 2, -1 do
+				local j = rng:NextInteger(1, i)
+				out[i], out[j] = out[j], out[i]
+			end
+			return out
+		end
+		local pool = candidates(2)
+		if #pool < want then
+			for _, s in candidates(1) do
+				if not table.find(pool, s) then
+					table.insert(pool, s)
+				end
+			end
+		end
+		local usedRooms: { [Instance]: boolean } = {}
+		local prizeRoom = prizeSpawnPart and ps:RoomAt(prizeSpawnPart.Position)
+		if prizeRoom then
+			usedRooms[prizeRoom] = true
+		end
+		local picks: { BasePart } = {}
+		for pass = 1, 2 do -- first pass: a new room each; second: anything left
+			for _, s in pool do
+				if #picks >= want then
+					break
+				end
+				if not table.find(picks, s) then
+					local room = ps:RoomAt(s.Position)
+					if pass == 2 or not (room and usedRooms[room]) then
+						table.insert(picks, s)
+						if room then
+							usedRooms[room] = true
+						end
+					end
+				end
+			end
+		end
+		for i, s in picks do
+			local key = keys[((i - 1) % math.max(1, #keys)) + 1]
+			if key then
+				used[s] = true
+				local id = "L" .. i
+				spawnPickup(key, false, s.CFrame, s, id)
+				table.insert(nightList, {
+					Id = id, Key = key, Name = LootConfig.ListItems[key].Name,
+					Prize = false, Spawn = s, State = "Hidden", Holder = "",
+				})
+			end
+		end
+	end
+	publishList()
 
 	-- Diary page (lore collectible), in a riskier room
 	if rng:NextNumber() < LootConfig.DiaryChance then
@@ -665,6 +860,7 @@ function LootService:Start()
 		table.clear(searchables)
 		trunk = nil
 		prizeSpawnPart = nil
+		table.clear(nightList)
 		active:ClearAllChildren()
 		if house then
 			local ls = house:FindFirstChild("LootSpawns")

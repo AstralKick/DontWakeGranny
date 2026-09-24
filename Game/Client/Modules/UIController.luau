@@ -225,7 +225,7 @@ function UIController:Start()
 
 	mount(ctx, { "NotifyScreen", "PromptScreen", "SettingsMenu", "DiaryScreen", "GamepadNav" })
 	if PlaceRole.IsMatch then
-		mount(ctx, { "HudScreen", "TouchControls", "IntroScreen", "LootFeedback", "DeathScreen", "HidingScreen", "MorningScreen", "EndScreen", "HidingHints" })
+		mount(ctx, { "HudScreen", "TouchControls", "IntroScreen", "LootFeedback", "DeathScreen", "HidingScreen", "MorningScreen", "EndScreen", "HidingHints", "FavoritePrompt", "HowToPlay" })
 	else
 		mount(ctx, { "LobbyHud", "CarPanel", "ShopMenu", "DressUpMenu", "MailboxMenu", "ChoresMenu", "LeaderboardBoard" })
 	end

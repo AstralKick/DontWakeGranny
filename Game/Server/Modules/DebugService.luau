@@ -10,6 +10,7 @@
 --   power                cut the power for 20s
 --   alert <0..100>       set her sleeping alert (tests stirring / waking)
 --   hide                 put player 1 in the nearest hiding spot
+--   stealall             player 1 grabs + stashes everything on tonight's list
 -- Other useful Workspace attributes: DebugStartNight (number), DebugEvent (EventConfig key),
 -- DebugNoCatch (bool).  None of this runs outside Studio.
 
@@ -43,6 +44,8 @@ local function run(cmd: string)
 		svc("MatchService"):DebugEndNight()
 	elseif args[1] == "timeleft" then
 		svc("MatchService"):DebugSetTimeLeft(tonumber(args[2]) or 30)
+	elseif args[1] == "stealall" and p then
+		svc("LootService"):DebugStealList(p)
 	elseif args[1] == "hide" and p then
 		svc("InteractionService"):DebugHide(p)
 	elseif args[1] == "alert" then

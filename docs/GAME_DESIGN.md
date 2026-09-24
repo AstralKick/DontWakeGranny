@@ -19,6 +19,7 @@ ENTER → EXPLORE → LOOT → RISK → NOISE → GRANDMA REACTS → HIDE/RUN �
 - **Bank** loot at Mom's car trunk in the driveway, which turns it into Candy right away and keeps it safe. Surviving until 6 AM auto-banks what you're still carrying.
 - Safer rooms have cheap loot. Grandma's rooms have the good stuff.
 - **Each night has one Prize** (dentures, cookie jar, wedding ring…). It's big, heavy and noisy, and it's always in a dangerous spot.
+- **Tonight's list (the main objective):** each night shows a checklist of things to steal: the Prize plus Grandma's personal items (3 on Nights 1–10, 4 on 11–20, 5 on 21–30; `NightConfig.ListCount`, items in `LootConfig.ListItems`). They spawn in riskier rooms, one per room where possible, with a mint sparkle and an "ON THE LIST" prompt. **Stash every item in Mom's trunk and the night ends early**: Mom honks, you go home, and everyone still standing gets `EconomyConfig.ListBonus`. Caught holding one? It goes back where it was. Or just survive till 6 AM. Night 31 has no list (the pumpkins are the objective).
 
 ## Noise (signature mechanic)
 Noise events have loudness and a radius. Grandma's **Alert** meter (0–100) fills from noise, falloff by distance and walls.

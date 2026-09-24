@@ -23,7 +23,7 @@ return {
 	Daily = { LastClaimDay = 0, Streak = 0 },
 	Quests = { Day = 0, List = {} }, -- List = { {Id, Target, Reward, Progress, Claimed} }
 	Social = { Referred = false, LastBuddyDay = 0, InvitesRewarded = 0 },
-	Tutorial = { UsedFreeRevive = false, SeenIntro = false, FirstNightDone = false },
+	Tutorial = { UsedFreeRevive = false, SeenIntro = false, FirstNightDone = false, FavAsks = 0, FavLastAt = 0, Favorited = false },
 	Settings = { Music = 0.7, SFX = 1, ReduceFlashes = false, Sensitivity = 1 },
 	Passes = {}, -- [passKey] = true (cached ownership, also re-checked on join)
 	Grants = {}, -- one-time grants already delivered, e.g. StarterPack = true

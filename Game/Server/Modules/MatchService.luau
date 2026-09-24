@@ -62,6 +62,7 @@ local expectedParty: { number } = {}
 local runPlayers: { [Player]: boolean } = {} -- players participating in this run
 local alive: { [Player]: boolean } = {}
 local revivesThisNight: { [Player]: number } = {}
+local graceThisNight: { [Player]: number } = {} -- practice catches used tonight (GameConfig.GraceCatches)
 local nightStats: { [Player]: { Banked: number, Lost: number, Survived: boolean } } = {}
 local sugarRushNight = 0
 
@@ -193,8 +194,68 @@ end
 
 -- ------------------------------------------------------------------ catching
 
+-- Tonight's list complete (LootService): Mom honks, the night ends a few seconds later and
+-- everyone still standing gets EconomyConfig.ListBonus on top of the survival bonus.
+local LIST_END_DELAY = 4
+local listStolenAt: number? = nil
+function MatchService:ListStolen(by: Player?)
+	if phase ~= "Night" or listStolenAt or nightCfg.Finale then
+		return
+	end
+	listStolenAt = workspace:GetServerTimeNow() + LIST_END_DELAY
+	setState("ListStolen", true)
+	local who = if by then by.DisplayName else "Someone"
+	Notify.Banner("all", "NIGHT STOLEN!", `{who} stashed the last one. Everything's in the trunk: Mom's taking you home!`, Color3.fromRGB(156, 197, 161))
+	local okSfx, Sfx = pcall(shared, "Sfx")
+	if okSfx and Sfx then
+		Sfx.Play("CarHorn")
+	end
+end
+
+-- Practice catch (GameConfig.GraceCatches): jumpscare + lose the pillowcase, then back at
+-- Mom's car. The player never stops being alive, so a solo run can't be wiped by it.
+local function graceCatch(p: Player, cause: string?)
+	graceThisNight[p] = (graceThisNight[p] or 0) + 1
+	local lostValue, lostCount = svc("LootService"):OnCaught(p)
+	local s = nightStats[p]
+	if s then
+		s.Lost += lostValue
+	end
+	DataService:IncStat(p, "TimesCaught")
+	svc("RewardsService"):CheckAchievements(p)
+	local form = GrandmaConfig.Forms[nightCfg.Form] or GrandmaConfig.Forms.Normal
+	local scare = form.Jumpscare.Duration + 0.3
+	-- Grandma ignores them while the scare plays and for a moment after they're back.
+	svc("PlayerStateService"):GrantProtection(p, scare + 5)
+	local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if root then
+		root.Anchored = true
+	end
+	CaughtEvent:FireClient(p, nightCfg.Form, lostValue, lostCount, false, false, "Grace")
+	playerCaught:Fire(p, "Grace")
+	local myNight = night
+	task.delay(scare + (GameConfig.GraceRespawnDelay or 0.6), function()
+		if p.Parent ~= Players or night ~= myNight or phase ~= "Night" or not alive[p] then
+			return
+		end
+		spawnPlayer(p, math.random(1, 5))
+		svc("PlayerStateService"):GrantProtection(p, 5)
+		local left = (GameConfig.GraceCatches[night] or 0) - (graceThisNight[p] or 0)
+		local text = if left > 50
+			then "Grandma sent you back to the car! Stash your loot in the trunk, it's safe there."
+			elseif left > 0 then `Back to the car! {left} more practice catch{if left == 1 then "" else "es"} tonight.`
+			else "Last practice catch used: next time she gets you, you're out for the night!"
+		Notify.Toast(p, text, "Info")
+	end)
+end
+
 function MatchService:CatchPlayer(p: Player, cause: string?)
 	if not alive[p] or (phase ~= "Night") then
+		return
+	end
+	local graceLimit = GameConfig.GraceCatches and GameConfig.GraceCatches[night] or 0
+	if cause ~= "Fell" and (graceThisNight[p] or 0) < graceLimit then
+		graceCatch(p, cause)
 		return
 	end
 	setAlive(p, false)
@@ -321,6 +382,9 @@ local function prepareNight(n: number)
 	local eventKey = svc("EventService"):Roll(n)
 	nightCfg = NightConfig.Get(n)
 	revivesThisNight = {}
+	graceThisNight = {}
+	listStolenAt = nil
+	setState("ListStolen", false)
 	nightStats = {}
 	continueRequested = false
 
@@ -389,6 +453,9 @@ local function runNight(): string -- returns "Survived" | "Wiped"
 		if nightCfg.Finale and svc("InteractionService"):FinaleEscaped() then
 			return "Survived"
 		end
+		if listStolenAt and workspace:GetServerTimeNow() >= listStolenAt then
+			return "Survived"
+		end
 		if workspace:GetServerTimeNow() >= nightEndsAt then
 			if nightCfg.Finale then
 				-- Halloween night has no dawn: you only win by escaping.
@@ -441,6 +508,13 @@ local function morning()
 				bonus += goalBonus
 				summary.GoalBonus = goalBonus
 				Notify.Toast(p, `Stash goal smashed! +{goalBonus} Candy`, "Candy")
+			end
+			-- Tonight's list: every item stashed = the night was stolen early.
+			if listStolenAt then
+				local listBonus = math.floor(EconomyConfig.ListBonus(night) * summary.FriendMult)
+				bonus += listBonus
+				summary.ListComplete = true
+				summary.ListBonus = listBonus
 			end
 			DataService:AddCandy(p, bonus)
 			summary.Bonus = bonus

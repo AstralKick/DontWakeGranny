@@ -21,6 +21,7 @@ The place role is `shared("PlaceRole")` (`IsLobby` / `IsMatch`).
 | `Power` | bool. `RedSky` bool |
 | `AliveCount`, `PartySize`, `Arrived`, `Expected` | Party info |
 | `PrizeName`, `PrizeState` (`Hidden`/`Carried`/`Banked`/""), `PrizeHolder` | Tonight's Prize |
+| `List` (JSON `[{Name, State: Hidden/Carried/Stashed, Holder, Prize}]` or ""), `ListStolen` (bool) | Tonight's list; `ListStolen` = all stashed, the night is ending early |
 | `ContinuesLeft`, `GameOverEnd` (server time) | Continue Run window |
 | `SugarRushNight` | The night number 2× loot applies to |
 | `Finale` (bool), `PumpkinsLit`, `PumpkinsTotal`, `FinaleOpen` | Night 31 |
@@ -41,7 +42,7 @@ Only `Humanoid`, `HumanoidRootPart` and `Head` are guaranteed. Motor6Ds are R15-
 | `Noise` (Unreliable) | (pos, loudness, radius, sourceUserId, kind) | Ripple at the source + "!" over the source player. Kinds: Run, Creak, Break, Door, Search, Pickup, Lockpick, Toy, Cookie, Lantern, Fuse, Lurking |
 | `Caught` | (formKey, lostValue, lostCount, canRevive, freeRevive, cause) | You were caught → jumpscare → death screen |
 | `TeammateCaught` | (name, lostValue) | Teammate went down |
-| `NightSummary` | {Night, Survived, Banked, Lost, AutoBanked, Bonus, Friends, FriendMult, NextNight, NextNewArea?, Checkpoint?, ChapterComplete?, NextChapter?, Goal?, GoalMet?, GoalBonus?, Candy} | Morning screen |
+| `NightSummary` | {Night, Survived, Banked, Lost, AutoBanked, Bonus, Friends, FriendMult, NextNight, NextNewArea?, Checkpoint?, ChapterComplete?, NextChapter?, Goal?, GoalMet?, GoalBonus?, ListComplete?, ListBonus?, Candy} | Morning screen |
 | `LootPicked` | (name, baseValue, isPrize) | Pickup pop |
 | `Banked` | (candy, count, reason `Trunk`/`Dawn`) | Bank celebration |
 | `SearchResult` | (foundName?) | "Nothing here…" / found |

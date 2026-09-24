@@ -1,6 +1,7 @@
 --!strict
 -- HidingHints (Match)
--- Little storybook "closed eye" badges that mark hiding spots once Grandma is awake, so
+-- Little storybook "closed eye" badges + the word HIDE that mark hiding spots once Grandma is
+-- awake (and on the learning nights 1-5 all night, softer while she sleeps), so
 -- players know where to run. One BillboardGui per Model tagged "HidingSpot", hung at the
 -- server's Front.HidePromptAnchor (fallback: between Front and Inside, +2.8 studs).
 --
@@ -33,6 +34,9 @@ local FULL = 22 -- fully visible inside this (when in sight)
 local NEAR_OCCLUDED = 16 -- through a wall: faint, and only this close
 local OCCLUDED_ALPHA = 0.35
 local SIZE = 58 -- design px (scaled with the UI)
+local LABEL_H = 24 -- the "HIDE" word under the badge
+local LEARN_NIGHTS = 5 -- on nights <= this, badges show even while she sleeps (softer)
+local ASLEEP_ALPHA = 0.6
 
 local ASLEEP = { Asleep = true, FakeSleep = true, [""] = true }
 local CHASE = { Chasing = true, Attacking = true }
@@ -101,13 +105,21 @@ local function buildGui(model: Model, adornee: Instance): Hint
 		ResetOnSpawn = false,
 		Active = false,
 		Enabled = false,
-		Size = UDim2.fromOffset(SIZE * s, SIZE * s),
+		Size = UDim2.fromOffset(SIZE * s, (SIZE + LABEL_H) * s),
 		StudsOffset = Vector3.new(0, 0.5, 0),
 		MaxDistance = FAR + 4,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 	})
-	local root = UIKit.Box({ Name = "Root", Size = UDim2.fromOffset(SIZE, SIZE), Parent = gui })
-	local view = UIKit.new("UIScale", { Name = "ViewScale", Scale = s, Parent = root })
+	local holder = UIKit.Box({ Name = "Holder", Size = UDim2.fromOffset(SIZE, SIZE + LABEL_H), Parent = gui })
+	local root = UIKit.Box({ Name = "Root", Size = UDim2.fromOffset(SIZE, SIZE), Parent = holder })
+	local view = UIKit.new("UIScale", { Name = "ViewScale", Scale = s, Parent = holder })
+	-- the word, so nobody has to guess what the eye means
+	local word = UIKit.new("TextLabel", {
+		Name = "Word", BackgroundTransparency = 1, Text = "HIDE", TextSize = 20, TextColor3 = C.Paper,
+		FontFace = Theme.Font.Button, Size = UDim2.new(1, 20, 0, LABEL_H), Position = UDim2.new(0.5, 0, 0, SIZE - 2),
+		AnchorPoint = Vector2.new(0.5, 0), ZIndex = 5, Parent = holder,
+	})
+	UIKit.Stroke(word, 3, C.Ink)
 	-- one UIScale per frame: root = view scale, beat = pulse, pop = UIKit.Pop
 	local beat = UIKit.Box({ Name = "Beat", Size = UDim2.fromScale(1, 1), Parent = root })
 	local pulse = UIKit.new("UIScale", { Name = "Pulse", Parent = beat })
@@ -142,6 +154,11 @@ local function buildGui(model: Model, adornee: Instance): Hint
 			table.insert(parts, { Inst = d, Prop = "Transparency", Base = d.Transparency })
 		end
 	end
+	table.insert(parts, { Inst = word, Prop = "TextTransparency", Base = 0 })
+	local wordStroke = word:FindFirstChildOfClass("UIStroke")
+	if wordStroke then
+		table.insert(parts, { Inst = wordStroke, Prop = "Transparency", Base = wordStroke.Transparency })
+	end
 	local alpha = Instance.new("NumberValue")
 	local h: Hint = {
 		Model = model,
@@ -162,7 +179,7 @@ local function buildGui(model: Model, adornee: Instance): Hint
 	UIState.Changed:Connect(function(k)
 		if k == "Scale" and gui.Parent then
 			local ns = math.clamp(UIState.Scale, 0.6, 1.2)
-			gui.Size = UDim2.fromOffset(SIZE * ns, SIZE * ns)
+			gui.Size = UDim2.fromOffset(SIZE * ns, (SIZE + LABEL_H) * ns)
 			view.Scale = ns
 		end
 	end)
@@ -298,10 +315,14 @@ function HidingHints.Mount(_ctx: any)
 				playerGui = player:FindFirstChildOfClass("PlayerGui") or playerGui
 			end
 			local st = grandmaState()
-			local awake = MS:GetAttribute("Phase") == "Night" and not ASLEEP[st]
+			local night = MS:GetAttribute("Phase") == "Night"
+			local awake = night and not ASLEEP[st]
 			local me = player:GetAttribute("Alive") ~= false and player:GetAttribute("Hidden") ~= true and player.Character ~= nil
-			local on = awake and me
-			setPulse(if not on then "" elseif CHASE[st] then "Chase" else "Calm")
+			-- Learning nights: show where to hide BEFORE she wakes (softer while she sleeps).
+			local learning = (tonumber(MS:GetAttribute("Night")) or 1) <= LEARN_NIGHTS
+			local on = night and me and (awake or learning)
+			local mult = if awake then 1 else ASLEEP_ALPHA
+			setPulse(if not on or not awake then "" elseif CHASE[st] then "Chase" else "Calm")
 
 			local cam = workspace.CurrentCamera
 			local camPos = cam and cam.CFrame.Position
@@ -347,7 +368,7 @@ function HidingHints.Mount(_ctx: any)
 						end
 					end
 				end
-				fadeTo(h, a)
+				fadeTo(h, a * mult)
 			end
 		end
 	end)

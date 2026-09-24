@@ -45,6 +45,12 @@ return {
 	},
 
 	-- Death / revive
+	-- Practice catches: on the first nights getting caught plays the jumpscare, drops your
+	-- pillowcase and puts you back at Mom's car instead of knocking you out of the night
+	-- (a solo player caught on Night 1 used to lose the whole run). Catches per player per night.
+	GraceCatches = { [1] = 99, [2] = 2, [3] = 1 },
+	GraceRespawnDelay = 0.6, -- seconds after the jumpscare ends
+
 	Revive = {
 		MaxPerNight = 1, -- per player
 		MinTimeLeft = 12, -- can't revive in the last N seconds of a night

@@ -116,6 +116,7 @@ AssetConfig.Sounds = {
 	ChaseStinger = { Id = "rbxassetid://1846887425", Volume = 0.9 }, -- PLACEHOLDER: hit when a chase starts
 	CarEngine = { Id = "", Volume = 0.8, Max = 80 },
 	CarDoor = { Id = "", Volume = 0.8, Max = 40 },
+	CarHorn = { Id = "rbxassetid://9114402205", Volume = 1 }, -- PLACEHOLDER PSE car horn. Mom honks: tonight's list is done, time to go home
 	Purchase = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.6 },
 }
 

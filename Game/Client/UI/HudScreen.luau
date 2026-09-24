@@ -2,7 +2,7 @@
 -- HudScreen (Match)
 -- Minimal, edge-pinned night HUD. The house is the star.
 --   top-left     Grandma alert face  +  NIGHT n / clock (or PUMPKINS on the finale)
---                + tonight's Prize line + event badge
+--                + tonight's LIST (steal these, stash them all = go home early) + event badge
 --   top-right    teammates strip (headshots; grey + X when caught, eye when hidden)
 --   bottom-mid   stamina (only when not full), battery (only when on / low),
 --                pillowcase "3/5 · 120" chip and the selected item slot
@@ -124,11 +124,11 @@ function HudScreen.Mount(ctx: any)
 	local hud = UIKit.Box({ Name = "Hud", Size = UDim2.fromScale(1, 1), Visible = false, Parent = ctx.HUD })
 
 	-- ============================================================ top-left
-	local tl = UIKit.Box({ Name = "TopLeft", Size = UDim2.fromOffset(760, 260), Position = UDim2.fromOffset(24, 18), Parent = hud })
+	local tl = UIKit.Box({ Name = "TopLeft", Size = UDim2.fromOffset(820, 440), Position = UDim2.fromOffset(24, 18), Parent = hud })
 	local face = UIWidgets.GrandmaFace({ Parent = tl, Size = 160, Position = UDim2.fromOffset(0, 0) })
 	HudScreen.Anchors.Grandma = face.Instance
 
-	local info = UIKit.Box({ Name = "Info", Size = UDim2.fromOffset(560, 240), Position = UDim2.fromOffset(180, 4), Parent = tl })
+	local info = UIKit.Box({ Name = "Info", Size = UDim2.fromOffset(630, 430), Position = UDim2.fromOffset(180, 4), Parent = tl })
 	UIKit.List(info, { Gap = 6, H = Enum.HorizontalAlignment.Left })
 	local nightRow = UIKit.Box({ Name = "NightRow", Size = UDim2.fromOffset(560, 64), LayoutOrder = 1, Parent = info })
 	UIKit.List(nightRow, { Dir = Enum.FillDirection.Horizontal, Gap = 14, H = Enum.HorizontalAlignment.Left, V = Enum.VerticalAlignment.Center })
@@ -142,18 +142,34 @@ function HudScreen.Mount(ctx: any)
 	UIKit.List(pumpkinRow, { Dir = Enum.FillDirection.Horizontal, Gap = 4, H = Enum.HorizontalAlignment.Left, V = Enum.VerticalAlignment.Center })
 	local pumpkinLabel = UIKit.Label({ Text = "PUMPKINS 0/5", Font = Theme.Font.Button, TextSize = Theme.Text.Body, Color = C.Pumpkin, Auto = "X", Size = UDim2.fromOffset(0, 50), LayoutOrder = 99, Parent = pumpkinRow })
 
-	local prizeLabel = UIKit.Label({
-		Name = "Prize",
-		Text = "",
-		Font = Theme.Font.Body,
-		TextSize = math.max(Theme.Text.Body, 26), -- readable from the couch on console (>= 24px)
-		Color = C.Paper,
-		Rich = true,
+	-- Tonight's list: steal these, stash them all = go home early (or survive till 6 AM).
+	local listBox = UIKit.Box({ Name = "TonightsList", Size = UDim2.fromOffset(620, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = 2, Parent = info })
+	UIKit.List(listBox, { Gap = 2, H = Enum.HorizontalAlignment.Left })
+	local listHeader = UIKit.Label({
+		Name = "Header",
+		Text = "TONIGHT: STEAL THESE, THEN GO HOME",
+		Font = Theme.Font.Button,
+		TextSize = 24,
+		Color = C.Mustard,
+		Stroke = 2,
 		XAlign = Enum.TextXAlignment.Left,
-		Size = UDim2.fromOffset(620, 38),
-		LayoutOrder = 2,
-		Parent = info,
+		Size = UDim2.fromOffset(620, 30),
+		LayoutOrder = 0,
+		Parent = listBox,
 	})
+	local listFooter = UIKit.Label({
+		Name = "OrSurvive",
+		Text = "...or survive till 6 AM",
+		Font = Theme.Font.Body,
+		TextSize = 22,
+		Color = C.PaperDim,
+		XAlign = Enum.TextXAlignment.Left,
+		Size = UDim2.fromOffset(620, 26),
+		LayoutOrder = 99,
+		Parent = listBox,
+	})
+	local listRows: { Instance } = {}
+	HudScreen.Anchors.List = listBox
 	-- Tonight's stash goal: "grab as much as you can" made concrete.
 	local goalLabel = UIKit.Label({
 		Name = "Goal",
@@ -298,25 +314,80 @@ function HudScreen.Mount(ctx: any)
 		end
 	end
 
+	local function listRow(order: number, entry: any)
+		local row = UIKit.Box({ Name = "Row" .. order, Size = UDim2.fromOffset(620, 30), LayoutOrder = order, Parent = listBox })
+		local stashed = entry.State == "Stashed"
+		local carried = entry.State == "Carried"
+		-- a hand-drawn tick box: empty, half (someone has it), ticked (in the trunk)
+		local box = UIKit.new("Frame", {
+			BackgroundColor3 = if stashed then C.Mint elseif carried then C.Mustard else C.Night,
+			BackgroundTransparency = if stashed or carried then 0 else 0.25,
+			Size = UDim2.fromOffset(22, 22),
+			Position = UDim2.fromOffset(2, 4),
+			Rotation = -4,
+			Parent = row,
+		})
+		UIKit.Corner(box, UDim.new(0, 6))
+		UIKit.Stroke(box, 3, if stashed then C.Mint else C.Paper)
+		if stashed then
+			UIKit.Label({ Text = "✓", Font = Theme.Font.Button, TextSize = 20, Color = C.Ink, Stroke = false, Size = UDim2.fromScale(1, 1), Parent = box })
+		end
+		local name = tostring(entry.Name or "?")
+		local suffix = ""
+		if stashed then
+			suffix = ` <font color="#9CC5A1">· stashed</font>`
+		elseif carried then
+			local who = if typeof(entry.Holder) == "string" and entry.Holder ~= "" then entry.Holder else "someone"
+			suffix = ` <font color="#E0B04F">· {who} has it: to the trunk!</font>`
+		elseif entry.Prize then
+			suffix = ` <font color="#D97A8A">★ right by Grandma</font>`
+		end
+		UIKit.Label({
+			Text = if stashed then `<s>{name}</s>{suffix}` else `<b>{name}</b>{suffix}`,
+			Font = Theme.Font.Body,
+			TextSize = 24,
+			Color = if stashed then C.PaperDim else C.Paper,
+			Rich = true,
+			XAlign = Enum.TextXAlignment.Left,
+			Size = UDim2.new(1, -34, 1, 0),
+			Position = UDim2.fromOffset(34, 0),
+			Parent = row,
+		})
+		table.insert(listRows, row)
+	end
+
+	local lastListJson = ""
 	local function refreshPrize()
-		local name = MS:GetAttribute("PrizeName") or ""
-		local st = MS:GetAttribute("PrizeState") or ""
-		if name == "" or st == "" then
-			prizeLabel.Visible = false
+		local json = MS:GetAttribute("List")
+		if typeof(json) ~= "string" or json == "" then
+			listBox.Visible = false
+			lastListJson = ""
 			return
 		end
-		prizeLabel.Visible = true
-		local suffix = ""
-		if st == "Hidden" then
-			suffix = "<font color=\"#9CC5A1\"> · somewhere around here</font>"
-		elseif st == "Carried" then
-			local holder = MS:GetAttribute("PrizeHolder")
-			local who = if typeof(holder) == "string" and holder ~= "" then holder else "someone"
-			suffix = `<font color="#E0B04F"> · {who} has it — get it to the car!</font>`
-		elseif st == "Banked" then
-			suffix = "<font color=\"#E0B04F\"> · STOLEN!</font>"
+		listBox.Visible = true
+		if json == lastListJson then
+			return
 		end
-		prizeLabel.Text = `Tonight's Prize: <b>{name}</b>{suffix}`
+		lastListJson = json
+		local ok, entries = pcall(HttpService.JSONDecode, HttpService, json)
+		if not ok or typeof(entries) ~= "table" then
+			return
+		end
+		for _, r in listRows do
+			r:Destroy()
+		end
+		table.clear(listRows)
+		local done = 0
+		for i, e in entries do
+			if e.State == "Stashed" then
+				done += 1
+			end
+			listRow(i, e)
+		end
+		listHeader.Text = if done >= #entries and #entries > 0
+			then "ALL STASHED! HEADING HOME..."
+			else `TONIGHT: STEAL THESE, THEN GO HOME  ({done}/{#entries})`
+		listFooter.Visible = done < #entries
 	end
 
 	local badgeEvent: Frame? = nil
@@ -583,7 +654,7 @@ function HudScreen.Mount(ctx: any)
 			refreshBadges()
 		elseif key == "GrandmaState" or key == "Alert" then
 			refreshGrandma()
-		elseif key == "PrizeName" or key == "PrizeState" or key == "PrizeHolder" then
+		elseif key == "List" or key == "PrizeName" or key == "PrizeState" or key == "PrizeHolder" then
 			refreshPrize()
 		elseif key == "Event" or key == "SugarRushNight" then
 			refreshBadges()
@@ -714,7 +785,7 @@ function HudScreen.Mount(ctx: any)
 		step("Stash your pillowcase in Mom's trunk to keep it!", carryChip, false, function()
 			return banked
 		end, 14)
-		step("Grab as much as you can before 6 AM!", goalLabel, true, function()
+		step("Stash everything on tonight's list and you go home early!", listBox, true, function()
 			return false
 		end, 7)
 		c1:Disconnect()

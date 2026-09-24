@@ -367,7 +367,7 @@ GrandmaConfig.AI = {
 	TeleportChance = 0.25,
 	PowerCutCooldown = 45,
 	LoseTargetLookTime = 2.5,
-	BathroomBreakAt = 40, -- seconds into night 1/2 for her scripted wander
+	BathroomBreakAt = 55, -- seconds into night 1/2 for her scripted wander (after the how-to-play card)
 	-- Camping: stay hidden too long and she comes for you (even from her chair). The hide timer
 	-- fills while you're hidden and drains CampDecay x as fast while you're out. At the limit
 	-- she walks straight to your spot and pulls you out if you're still in it (no breath save).

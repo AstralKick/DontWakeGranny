@@ -10,6 +10,11 @@ EconomyConfig.CurrencyName = "Candy"
 EconomyConfig.SurviveBonus = function(night: number): number
 	return 20 + 6 * night
 end
+-- Tonight's list: every item on it stashed = the night ends early, and each player still
+-- standing gets this on top of the survival bonus.
+EconomyConfig.ListBonus = function(night: number): number
+	return 60 + 15 * night
+end
 EconomyConfig.VictoryBonus = 2500
 EconomyConfig.PrizeXPNote = "Prizes are worth their Value in Candy when banked."
 

@@ -65,6 +65,35 @@ LootConfig.Prizes = {
 		Visual = { { "Ball", Vector3.new(0.7, 0.7, 0.7), C(240, 230, 220), M.SmoothPlastic, Vector3.new(0, 0.7, 0) }, { "Box", Vector3.new(0.8, 1, 0.5), C(150, 60, 80), M.Fabric } } },
 }
 
+-- Tonight's list: each night asks for NightConfig.ListCount things = tonight's Prize + this
+-- many of these (random, MinNight-gated). They spawn in riskier rooms (Danger >= 2), one per
+-- room where possible. Stash every item on the list in Mom's trunk = the night ends early.
+-- If you're caught holding one it goes back where it was.
+LootConfig.ListItems = {
+	CarKeys = { Name = "Grandma's Car Keys", Value = 60, Noise = 9, Slots = 1, MinNight = 1,
+		Visual = { { "Cyl", Vector3.new(0.08, 0.5, 0.5), C(200, 200, 208), M.Metal }, { "Box", Vector3.new(0.7, 0.08, 0.16), C(214, 178, 84), M.Metal, Vector3.new(0.4, 0, 0) }, { "Box", Vector3.new(0.3, 0.3, 0.1), C(200, 60, 70), M.SmoothPlastic, Vector3.new(-0.3, 0, 0) } } },
+	RecipeBook = { Name = "Secret Recipe Book", Value = 70, Noise = 6, Slots = 1, MinNight = 1,
+		Visual = { { "Box", Vector3.new(1, 0.25, 0.75), C(160, 60, 70), M.Fabric }, { "Box", Vector3.new(0.92, 0.2, 0.7), C(243, 233, 210), M.SmoothPlastic, Vector3.new(0.04, 0, 0) } } },
+	HearingAid = { Name = "Grandma's Hearing Aid", Value = 80, Noise = 3, Slots = 1, MinNight = 1,
+		Visual = { { "Ball", Vector3.new(0.4, 0.5, 0.3), C(230, 190, 170), M.SmoothPlastic }, { "Cyl", Vector3.new(0.3, 0.12, 0.12), C(230, 190, 170), M.SmoothPlastic, Vector3.new(0, 0.3, 0) } } },
+	TVRemote = { Name = "The TV Remote", Value = 55, Noise = 5, Slots = 1, MinNight = 1,
+		Visual = { { "Box", Vector3.new(0.35, 0.15, 1.1), C(40, 36, 44), M.SmoothPlastic }, { "Box", Vector3.new(0.12, 0.05, 0.12), C(200, 60, 70), M.Neon, Vector3.new(0, 0.1, -0.4) } } },
+	WoolBall = { Name = "Her Favourite Wool", Value = 50, Noise = 2, Slots = 1, MinNight = 1,
+		Visual = { { "Ball", Vector3.new(0.8, 0.8, 0.8), C(217, 122, 138), M.Fabric }, { "Cyl", Vector3.new(1, 0.06, 0.06), C(214, 178, 84), M.Metal, Vector3.new(0, 0.3, 0.1) } } },
+	HaroldsPipe = { Name = "Harold's Pipe", Value = 90, Noise = 4, Slots = 1, MinNight = 3,
+		Visual = { { "Cyl", Vector3.new(0.9, 0.12, 0.12), C(90, 60, 45), M.Wood }, { "Cyl", Vector3.new(0.35, 0.3, 0.3), C(90, 60, 45), M.Wood, Vector3.new(0.45, 0.12, 0) } } },
+	Thimble = { Name = "The Golden Thimble", Value = 100, Noise = 3, Slots = 1, MinNight = 4,
+		Visual = { { "Cyl", Vector3.new(0.35, 0.3, 0.3), C(240, 196, 70), M.Metal } } },
+	PillBottle = { Name = "Her 'Special' Pills", Value = 75, Noise = 12, Slots = 1, MinNight = 6,
+		Visual = { { "Cyl", Vector3.new(0.6, 0.35, 0.35), C(230, 150, 60), M.Glass }, { "Cyl", Vector3.new(0.15, 0.38, 0.38), C(243, 233, 210), M.SmoothPlastic, Vector3.new(0, 0.36, 0) } } },
+	CuckooBird = { Name = "The Cuckoo Bird", Value = 110, Noise = 14, Slots = 1, MinNight = 11,
+		Visual = { { "Ball", Vector3.new(0.5, 0.45, 0.6), C(120, 150, 90), M.Wood }, { "Box", Vector3.new(0.12, 0.08, 0.25), C(224, 176, 79), M.Wood, Vector3.new(0, 0.05, -0.38) } } },
+	LocketPhoto = { Name = "Harold's Locket", Value = 130, Noise = 4, Slots = 1, MinNight = 16,
+		Visual = { { "Cyl", Vector3.new(0.1, 0.55, 0.55), C(214, 178, 84), M.Metal }, { "Cyl", Vector3.new(0.12, 0.35, 0.35), C(200, 190, 170), M.SmoothPlastic } } },
+	GlassEye = { Name = "Grandpa's Glass Eye", Value = 150, Noise = 5, Slots = 1, MinNight = 21,
+		Visual = { { "Ball", Vector3.new(0.45, 0.45, 0.45), C(245, 240, 232), M.Glass }, { "Ball", Vector3.new(0.2, 0.2, 0.1), C(70, 120, 170), M.SmoothPlastic, Vector3.new(0, 0, -0.2) } } },
+}
+
 -- Diary pages: collectible lore (DiaryConfig). One may spawn per night.
 LootConfig.DiaryChance = 0.4
 

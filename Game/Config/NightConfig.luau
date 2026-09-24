@@ -44,6 +44,7 @@ export type Night = {
 	ContainerChanceMult: number,
 	PickupNoiseMult: number,
 	EasyLoot: number,
+	ListCount: number,
 	LootGoal: number,
 	GoalBonus: number,
 	EventChance: number,
@@ -175,6 +176,8 @@ function NightConfig.Get(n: number): Night
 		ContainerChanceMult = lerp(1, 0.6, t),
 		PickupNoiseMult = lerp(1, 1.6, t),
 		EasyLoot = if n <= 2 then 4 elseif n <= 5 then 2 elseif n <= 10 then 1 else 0,
+		-- Tonight's list: steal these (the Prize + others), stash them all = night ends early.
+		ListCount = if n <= 10 then 3 elseif n <= 20 then 4 else 5,
 		-- Per-player stash goal for the night (Candy banked incl. dawn auto-stash). Hitting it
 		-- pays GoalBonus × goal on top of the survival bonus. Pushes "grab as much as you can".
 		LootGoal = if n == 31 then 0 else math.floor(lerp(60, 650, t) / 10) * 10,

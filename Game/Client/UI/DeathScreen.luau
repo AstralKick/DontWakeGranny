@@ -383,7 +383,12 @@ function DeathScreen.Mount(ctx: any)
 	end
 
 	local waitingForScare = false
-	Net.Event("Caught").OnClientEvent:Connect(function(formKey, lost, lostCount, canRevive, freeRevive)
+	Net.Event("Caught").OnClientEvent:Connect(function(formKey, lost, lostCount, canRevive, freeRevive, cause)
+		-- Practice catch (early nights): the jumpscare plays, then you're back at the car.
+		-- No death screen, no spectating.
+		if cause == "Grace" then
+			return
+		end
 		state.Token += 1
 		state.Caught = true
 		state.Lost = if typeof(lost) == "number" then lost else 0

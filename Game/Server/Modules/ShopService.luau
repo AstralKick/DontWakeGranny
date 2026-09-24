@@ -138,9 +138,24 @@ function ShopService:Start()
 		end)
 	end)
 	Net.Event("MarkTutorial").OnServerEvent:Connect(function(player, key)
-		if key == "SeenIntro" and Net.RateLimit(player, "MarkTutorial", 1) then
+		if not Net.RateLimit(player, "MarkTutorial", 1) then
+			return
+		end
+		if key == "SeenIntro" then
 			DataService:Update(player, "Tutorial", function(t)
 				t.SeenIntro = true
+				return t
+			end)
+		elseif key == "FavAsked" then
+			-- The "favourite the game" card was shown (no rewards: Roblox forbids paying for votes).
+			DataService:Update(player, "Tutorial", function(t)
+				t.FavAsks = (t.FavAsks or 0) + 1
+				t.FavLastAt = os.time()
+				return t
+			end)
+		elseif key == "Favorited" then
+			DataService:Update(player, "Tutorial", function(t)
+				t.Favorited = true
 				return t
 			end)
 		end

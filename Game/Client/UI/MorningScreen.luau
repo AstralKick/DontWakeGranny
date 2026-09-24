@@ -77,7 +77,7 @@ function MorningScreen.Mount(ctx: any)
 		local night = s.Night or (MS:GetAttribute("Night") or 1)
 		local survived = s.Survived == true
 		UIKit.Title({
-			Text = if typeof(s.ChapterComplete) == "string" then "CHAPTER COMPLETE!" elseif survived then `YOU SURVIVED NIGHT {night}` else `YOUR TEAM SURVIVED NIGHT {night}`,
+			Text = if typeof(s.ChapterComplete) == "string" then "CHAPTER COMPLETE!" elseif s.ListComplete then `NIGHT {night} STOLEN!` elseif survived then `YOU SURVIVED NIGHT {night}` else `YOUR TEAM SURVIVED NIGHT {night}`,
 			TextSize = if survived then 66 else 56,
 			Color = if survived then C.Mint else C.Rose,
 			Stroke = 5,
@@ -87,7 +87,7 @@ function MorningScreen.Mount(ctx: any)
 			Parent = body,
 		})
 		UIKit.Label({
-			Text = if typeof(s.ChapterComplete) == "string" then `You beat {s.ChapterComplete}. Grandma's moving somewhere new...` elseif survived then "The sun's up. Grandma's snoring again." else "You got caught — but you're back tonight.",
+			Text = if typeof(s.ChapterComplete) == "string" then `You beat {s.ChapterComplete}. Grandma's moving somewhere new...` elseif s.ListComplete then "Everything on the list, in the trunk. Home before sunrise!" elseif survived then "The sun's up. Grandma's snoring again." else "You got caught — but you're back tonight.",
 			Font = Theme.Font.Body,
 			TextSize = Theme.Text.Body,
 			Color = C.Bruise,
@@ -106,7 +106,10 @@ function MorningScreen.Mount(ctx: any)
 			table.insert(rowDefs, { "Auto-stashed at dawn", s.AutoBanked, C.Ink })
 		end
 		if survived then
-			table.insert(rowDefs, { "Survival bonus", s.Bonus or 0, C.Ink })
+			if s.ListComplete and (s.ListBonus or 0) > 0 then
+				table.insert(rowDefs, { "Tonight's list, stolen!", s.ListBonus, C.Ink })
+			end
+			table.insert(rowDefs, { "Survival bonus", (s.Bonus or 0) - (s.ListBonus or 0), C.Ink })
 		end
 		if (s.Friends or 0) > 0 then
 			local pct = math.floor(((s.FriendMult or 1) - 1) * 100 + 0.5)

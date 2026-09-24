@@ -22,6 +22,7 @@ type Style = { Card: Color3, Text: Color3, Sub: Color3, Ring: Color3, Tag: strin
 local STYLES: { [string]: Style } = {
 	Loot = { Card = C.Paper, Text = C.Ink, Sub = C.Bruise, Ring = C.Rose },
 	Prize = { Card = C.Mustard, Text = C.Ink, Sub = C.Ink, Ring = C.Blood, Tag = "PRIZE" },
+	List = { Card = C.Mint, Text = C.Ink, Sub = C.Ink, Ring = C.Mustard, Tag = "ON THE LIST" },
 	Search = { Card = C.PaperDim, Text = C.Ink, Sub = C.Bruise, Ring = C.Bruise },
 	Door = { Card = C.Night, Text = C.Paper, Sub = C.Rose, Ring = C.Rose },
 	Hide = { Card = C.Bruise, Text = C.Paper, Sub = C.Paper, Ring = C.Paper },
