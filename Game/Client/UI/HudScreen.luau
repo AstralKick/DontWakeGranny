@@ -154,7 +154,36 @@ function HudScreen.Mount(ctx: any)
 		LayoutOrder = 2,
 		Parent = info,
 	})
-	local badges = UIKit.Box({ Name = "Badges", Size = UDim2.fromOffset(560, 50), LayoutOrder = 3, Parent = info })
+	-- Tonight's stash goal: "grab as much as you can" made concrete.
+	local goalLabel = UIKit.Label({
+		Name = "Goal",
+		Text = "",
+		Font = Theme.Font.Button,
+		TextSize = 26,
+		Color = C.Paper,
+		Rich = true,
+		XAlign = Enum.TextXAlignment.Left,
+		Size = UDim2.fromOffset(620, 34),
+		LayoutOrder = 3,
+		Stroke = 2,
+		Parent = info,
+	})
+	local function refreshGoal()
+		local goal = player:GetAttribute("NightGoal") or 0
+		local banked = player:GetAttribute("BankedTonight") or 0
+		goalLabel.Visible = goal > 0
+		if banked >= goal and goal > 0 then
+			goalLabel.Text = `<font color="#9CC5A1">Stash goal reached!</font>  {UIWidgets.Number(banked)} Candy stashed — keep going`
+		else
+			goalLabel.Text = `Tonight's goal: stash <font color="#E0B04F">{UIWidgets.Number(banked)} / {UIWidgets.Number(goal)}</font> Candy`
+		end
+	end
+	refreshGoal()
+	player:GetAttributeChangedSignal("NightGoal"):Connect(refreshGoal)
+	player:GetAttributeChangedSignal("BankedTonight"):Connect(refreshGoal)
+	HudScreen.Anchors.Goal = goalLabel
+
+	local badges = UIKit.Box({ Name = "Badges", Size = UDim2.fromOffset(560, 50), LayoutOrder = 4, Parent = info })
 	UIKit.List(badges, { Dir = Enum.FillDirection.Horizontal, Gap = 10, H = Enum.HorizontalAlignment.Left, V = Enum.VerticalAlignment.Center })
 
 	-- ============================================================ top-right teammates
@@ -222,7 +251,7 @@ function HudScreen.Mount(ctx: any)
 	end)
 
 	-- Early-night control hints for keyboard/gamepad (sprint / sneak); fades after Night 3.
-	local hints = UIKit.Box({ Name = "ControlHints", AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 44), Position = UDim2.new(0, 24, 1, -24), AnchorPoint = Vector2.new(0, 1), Parent = hud })
+	local hints = UIKit.Box({ Name = "ControlHints", AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 44), Position = UDim2.new(0, 24, 1, -120), AnchorPoint = Vector2.new(0, 1), Parent = hud }) -- above the bottom chip row
 	UIKit.List(hints, { Dir = Enum.FillDirection.Horizontal, Gap = 10, V = Enum.VerticalAlignment.Center })
 	local function hint(key: Enum.KeyCode, pad: Enum.KeyCode, text: string, order: number)
 		UIWidgets.Glyph({ Parent = hints, Key = key, Pad = pad, Size = 40, LayoutOrder = order * 2 - 1 })
@@ -344,7 +373,10 @@ function HudScreen.Mount(ctx: any)
 		local slots = player:GetAttribute("CarrySlots") or 0
 		local max = player:GetAttribute("MaxSlots") or GameConfig.Inventory.BaseSlots
 		local value = player:GetAttribute("CarryValue") or 0
-		carryLabel.Text = `{slots}/{max}  ·  <font color="#E0B04F">{UIWidgets.Number(value)} Candy</font>`
+		-- Name the pillowcase outright so nobody wonders what the bag is for.
+		carryLabel.Text = if slots == 0
+			then `PILLOWCASE {slots}/{max}  ·  <font color="#9CC5A1">empty — steal stuff!</font>`
+			else `PILLOWCASE {slots}/{max}  ·  <font color="#E0B04F">{UIWidgets.Number(value)} Candy</font>`
 		carryLabel.RichText = true
 		local full = slots >= max and max > 0
 		local faceStroke = carryFace:FindFirstChildOfClass("UIStroke") :: UIStroke
@@ -673,15 +705,18 @@ function HudScreen.Mount(ctx: any)
 			end)
 			task.wait(0.6)
 		end
-		step("Steal stuff.", carryChip, false, function()
+		step("Steal shiny things — they go in your pillowcase!", carryChip, false, function()
 			return picked
 		end, 14)
 		step("Don't wake Grandma.", face.Instance, true, function()
 			return false
 		end, 6)
-		step("Stash loot in Mom's trunk.", carryChip, false, function()
+		step("Stash your pillowcase in Mom's trunk to keep it!", carryChip, false, function()
 			return banked
 		end, 14)
+		step("Grab as much as you can before 6 AM!", goalLabel, true, function()
+			return false
+		end, 7)
 		c1:Disconnect()
 		c2:Disconnect()
 		Net.Event("MarkTutorial"):FireServer("SeenIntro")

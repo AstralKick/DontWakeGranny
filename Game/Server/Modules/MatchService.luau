@@ -113,8 +113,19 @@ end
 
 -- Studio only (DebugService): jump the clock to dawn.
 function MatchService:DebugEndNight()
+	MatchService:DebugSetTimeLeft(0)
+end
+
+-- Studio only: set how many seconds remain until dawn (e.g. to watch the final countdown).
+function MatchService:DebugSetTimeLeft(seconds: number)
 	if RunService:IsStudio() and phase == "Night" then
-		nightEndsAt = workspace:GetServerTimeNow()
+		nightEndsAt = workspace:GetServerTimeNow() + seconds
+		local startAt = state:GetAttribute("NightStart") or 0
+		local duration = nightCfg.Duration
+		-- keep the clock/progress consistent: shift the start so frac matches the new end
+		state:SetAttribute("NightStart", nightEndsAt - duration)
+		state:SetAttribute("NightEnd", nightEndsAt)
+		local _ = startAt
 	end
 end
 

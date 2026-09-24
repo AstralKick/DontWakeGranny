@@ -39,6 +39,8 @@ local function run(cmd: string)
 		svc("NoiseService"):Emit(root.Position, tonumber(args[2]) or 40, 80, p, "Debug")
 	elseif args[1] == "endnight" then
 		svc("MatchService"):DebugEndNight()
+	elseif args[1] == "timeleft" then
+		svc("MatchService"):DebugSetTimeLeft(tonumber(args[2]) or 30)
 	elseif args[1] == "power" then
 		svc("EnvironmentService"):CutPower(20)
 	end
