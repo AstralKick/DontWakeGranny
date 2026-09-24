@@ -278,6 +278,26 @@ local function hide(p: Player, spot: Spot)
 	svc("GrandmaService"):OnPlayerHid(p, spot)
 end
 
+-- Studio (DebugService "hide"): put the player in the nearest free hiding spot.
+function InteractionService:DebugHide(p: Player)
+	local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return
+	end
+	local best, bestD = nil, math.huge
+	for _, s in spots do
+		local d = (s.Front.Position - root.Position).Magnitude
+		if not s.Occupant and d < bestD then
+			best, bestD = s, d
+		end
+	end
+	if best then
+		root.CFrame = best.Front.CFrame + Vector3.new(0, 3, 0)
+		lastHideToggle[p] = 0
+		hide(p, best)
+	end
+end
+
 local function hookSpot(model: Model)
 	local inside = model:FindFirstChild("Inside", true) :: BasePart?
 	local front = model:FindFirstChild("Front", true) :: BasePart?
@@ -662,43 +682,52 @@ function InteractionService:Start()
 	if not PlaceRole.IsMatch then
 		return
 	end
-	house = workspace:WaitForChild("House", 20)
-	for _, m in CollectionService:GetTagged("Door") do
-		if m:IsA("Model") then
-			hookDoor(m)
+	local function bindMap(h: Instance?)
+		house = h
+		InteractionService:LeaveAll()
+		table.clear(doors)
+		table.clear(spots)
+		fuseBox, fusePrompt, escapeZone = nil, nil, nil
+		if not h then
+			return
 		end
-	end
-	for _, m in CollectionService:GetTagged("HidingSpot") do
-		if m:IsA("Model") then
-			hookSpot(m)
-		end
-	end
-
-	if house then
-		fuseBox = house:FindFirstChild("FuseBox") :: BasePart?
-		local car = house:FindFirstChild("MomsCar")
-		escapeZone = car and (car:FindFirstChild("Trunk", true) :: BasePart?)
-	end
-	if fuseBox then
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.ActionText = "Fix the Fuses"
-		prompt.ObjectText = "Fuse Box"
-		prompt.HoldDuration = 3
-		prompt.MaxActivationDistance = 7
-		prompt.Style = Enum.ProximityPromptStyle.Custom
-		prompt:SetAttribute("Kind", "Objective")
-		prompt.Enabled = false
-		prompt.Parent = fuseBox
-		fusePrompt = prompt
-		prompt.PromptButtonHoldBegan:Connect(function(p)
-			svc("NoiseService"):Emit((fuseBox :: BasePart).Position, 16, 50, p, "Fuse")
-		end)
-		prompt.Triggered:Connect(function(p)
-			if svc("MatchService"):IsAlive(p) then
-				svc("EnvironmentService"):RestorePower(p)
+		-- Tagged templates of the inactive maps sit in ServerStorage: only hook the active map.
+		for _, m in CollectionService:GetTagged("Door") do
+			if m:IsA("Model") and m:IsDescendantOf(h) then
+				hookDoor(m)
 			end
-		end)
+		end
+		for _, m in CollectionService:GetTagged("HidingSpot") do
+			if m:IsA("Model") and m:IsDescendantOf(h) then
+				hookSpot(m)
+			end
+		end
+		fuseBox = h:FindFirstChild("FuseBox") :: BasePart?
+		local car = h:FindFirstChild("MomsCar")
+		escapeZone = car and (car:FindFirstChild("Trunk", true) :: BasePart?)
+		if fuseBox then
+			local prompt = Instance.new("ProximityPrompt")
+			prompt.ActionText = "Fix the Fuses"
+			prompt.ObjectText = "Fuse Box"
+			prompt.HoldDuration = 3
+			prompt.MaxActivationDistance = 7
+			prompt.Style = Enum.ProximityPromptStyle.Custom
+			prompt:SetAttribute("Kind", "Objective")
+			prompt.Enabled = false
+			prompt.Parent = fuseBox
+			fusePrompt = prompt
+			prompt.PromptButtonHoldBegan:Connect(function(p)
+				svc("NoiseService"):Emit((fuseBox :: BasePart).Position, 16, 50, p, "Fuse")
+			end)
+			prompt.Triggered:Connect(function(p)
+				if svc("MatchService"):IsAlive(p) then
+					svc("EnvironmentService"):RestorePower(p)
+				end
+			end)
+		end
 	end
+	bindMap(workspace:WaitForChild("House", 20))
+	shared("MapService"):OnChanged(bindMap)
 
 	LeaveHiding.OnServerEvent:Connect(function(p)
 		if Net.RateLimit(p, "LeaveHiding", 3) and os.clock() - (lastHideToggle[p] or 0) > 0.5 then

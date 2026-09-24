@@ -43,12 +43,22 @@ local function candidates(): { Model }
 end
 
 -- Weighted random pick among rigs eligible for this night.
+-- Rig attributes: MinNight (number), Weight (number), Maps (comma-separated MapIds, e.g.
+-- "SunnyPines" or "StMildreds,NightmareHouse"): a rig with Maps only appears on those maps
+-- and is strongly preferred there (x MAP_PREFERENCE weight).
+local MAP_PREFERENCE = 4
+
 function GrandmaRig.Pick(night: number, exclude: Model?): Model?
 	local pool, total = {}, 0
 	for _, m in candidates() do
 		local minNight = tonumber(m:GetAttribute("MinNight")) or 1
 		if night >= minNight and (m ~= exclude or #candidates() == 1) then
 			local w = math.max(0, tonumber(m:GetAttribute("Weight")) or 1)
+			local maps = m:GetAttribute("Maps")
+			if typeof(maps) == "string" and maps ~= "" then
+				local here = shared("MapService"):GetMapId() or ""
+				w = if table.find(string.split(string.gsub(maps, " ", ""), ","), here) then w * MAP_PREFERENCE else 0
+			end
 			if w > 0 then
 				table.insert(pool, { m, w })
 				total += w
@@ -147,6 +157,9 @@ end
 
 -- Pick tonight's outfit: eligible for the night, never the same as last night.
 function GrandmaRig.PickOutfit(night: number, previous: string?): any
+	-- Outfits with Maps = { ... } only appear on those maps, and are MAP_PREFERENCE x as likely
+	-- there, so each chapter has its own wardrobe.
+	local here = shared("MapService"):GetMapId() or ""
 	local pool, total = {}, 0
 	for _, o in GrandmaConfig.Outfits or {} do
 		local ok
@@ -155,22 +168,30 @@ function GrandmaRig.PickOutfit(night: number, previous: string?): any
 		else
 			ok = night >= (o.MinNight or 1) and night <= (o.MaxNight or 30)
 		end
+		local w = o.Weight or 1
+		if o.Maps then
+			if table.find(o.Maps, here) then
+				w *= MAP_PREFERENCE
+			else
+				ok = false
+			end
+		end
 		if ok and (o.Name ~= previous) then
-			table.insert(pool, o)
-			total += o.Weight or 1
+			table.insert(pool, { o = o, w = w })
+			total += w
 		end
 	end
 	if #pool == 0 then
 		return nil
 	end
 	local r = rng:NextNumber() * total
-	for _, o in pool do
-		r -= o.Weight or 1
+	for _, e in pool do
+		r -= e.w
 		if r <= 0 then
-			return o
+			return e.o
 		end
 	end
-	return pool[#pool]
+	return pool[#pool].o
 end
 
 function GrandmaRig.ApplyOutfit(rig: Rig, outfit: any)

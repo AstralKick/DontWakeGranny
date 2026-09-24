@@ -21,6 +21,7 @@ local PlaceRole = shared("PlaceRole")
 local PlaceConfig = shared("PlaceConfig")
 local GameConfig = shared("GameConfig")
 local NightConfig = shared("NightConfig")
+local MapConfig = shared("MapConfig")
 local EconomyConfig = shared("EconomyConfig")
 local GrandmaConfig = shared("GrandmaConfig")
 local DataService = shared("DataService")
@@ -334,6 +335,9 @@ local function prepareNight(n: number)
 	setState("Duration", nightCfg.Duration)
 	setState("SugarRushNight", sugarRushNight)
 
+	-- New chapter -> new map (services rebind via MapService.MapChanged).
+	svc("MapService"):EnsureFor(n)
+	setState("Chapter", MapConfig.ChapterFor(n).Name)
 	svc("EnvironmentService"):ApplyNight(n, nightCfg)
 	svc("InteractionService"):ResetForNight(n, nightCfg)
 	svc("LootService"):SpawnForNight(n, nightCfg)
@@ -422,6 +426,8 @@ local function morning()
 			NextNight = night + 1,
 			NextNewArea = if night < 31 then NightConfig.Get(night + 1).NewArea else nil,
 			Checkpoint = NightConfig.IsCheckpoint(night + 1) and (night + 1) or nil,
+			ChapterComplete = if MapConfig.ChapterFor(night).LastNight == night then MapConfig.ChapterFor(night).Name else nil,
+			NextChapter = if night < 31 and MapConfig.ChapterFor(night).LastNight == night then MapConfig.ChapterFor(night + 1).Name else nil,
 		}
 		if survived then
 			summary.AutoBanked = loot:BankAll(p, "Dawn")
@@ -589,7 +595,8 @@ local function waitForParty(): number
 	end
 
 	for _, p in Players:GetPlayers() do
-		DataService:WaitForData(p, 10)
+		-- Slow saves after the teleport: give them time, otherwise tonight's Candy can't be saved.
+		DataService:WaitForData(p, 30)
 		runPlayers[p] = true
 		if DataService:GetStat(p, "NightsPlayed") == 0 then
 			shared("Analytics").Onboarding(p, "ArrivedAtGrandmas")
@@ -689,12 +696,16 @@ function MatchService:Start()
 		-- Late party member: join the run. Mid-night arrivals spectate until next night
 		-- unless the night just started.
 		DataService:WaitForData(p, 15)
-		if phase == "Waiting" or phase == "Ended" then
+		-- Already in the run (arrived with the party; their save just loaded slowly after the
+		-- teleport): they were spawned by the night itself. Never mark them dead here, or they
+		-- lose their controls and HUD until the next night.
+		if phase == "Waiting" or phase == "Ended" or runPlayers[p] or alive[p] then
 			return
 		end
 		runPlayers[p] = true
 		setState("PartySize", #MatchService:GetPlayers())
-		if phase == "Night" and workspace:GetServerTimeNow() - (state:GetAttribute("NightStart") or 0) < 25 then
+		local sinceStart = workspace:GetServerTimeNow() - (state:GetAttribute("NightStart") or 0)
+		if phase == "Intro" or (phase == "Night" and sinceStart < 25) then
 			nightStats[p] = { Banked = 0, Lost = 0, Survived = false }
 			spawnPlayer(p, 1)
 			setAlive(p, true)

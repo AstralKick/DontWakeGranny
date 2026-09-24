@@ -210,6 +210,18 @@ local function build(prompt: ProximityPrompt)
 
 	-- Tap / click target over everything.
 	local hit = UIKit.new("TextButton", { Name = "Hit", Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 10, Selectable = false, Parent = pop })
+	-- Only touch needs to TAP the prompt. With a mouse/gamepad the button (and an Active
+	-- billboard) would swallow input and stop you turning the camera while the cursor is
+	-- over a prompt, so it's click-through there (PC/console use the key instead).
+	local function applyInteractive()
+		local touch = UIState.Input == "Touch"
+		gui.Active = touch
+		hit.Active = touch
+		pcall(function()
+			hit.Interactable = touch
+		end)
+	end
+	applyInteractive()
 
 	local holdValue = Instance.new("NumberValue")
 	local e: Entry = {
@@ -279,6 +291,9 @@ local function build(prompt: ProximityPrompt)
 		glyph:SetKeys(prompt.KeyboardKeyCode, prompt.GamepadKeyCode)
 	end))
 	table.insert(e.Conns, UIState.Changed:Connect(function(key)
+		if key == "Input" then
+			applyInteractive()
+		end
 		if key == "Scale" or key == "Input" then
 			local ns = billboardScale()
 			gui.Size = UDim2.fromOffset(W * ns, H * ns)

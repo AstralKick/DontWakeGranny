@@ -6,6 +6,8 @@
 --
 -- DEVELOPER: tune the curves in BASE, or override single nights in OVERRIDES.
 
+local MapConfig = require(script.Parent:WaitForChild("MapConfig"))
+
 local NightConfig = {}
 
 export type Abilities = {
@@ -98,16 +100,8 @@ local SUBTITLES = {
 
 -- Chapter milestones: new areas / forms / corruption.
 local function areasFor(n: number): ({ [string]: boolean }, string?)
-	local areas = { Ground = true, Upstairs = n >= 6, Basement = n >= 11, Attic = n >= 16 }
-	local newArea = nil
-	if n == 6 then
-		newArea = "UPSTAIRS"
-	elseif n == 11 then
-		newArea = "THE BASEMENT"
-	elseif n == 16 then
-		newArea = "THE ATTIC"
-	end
-	return areas, newArea
+	-- Areas open per night of the current chapter (each chapter is its own map).
+	return MapConfig.AreasFor(n)
 end
 
 local function formFor(n: number): string

@@ -37,6 +37,12 @@ function DataService.InitProfile(player: Player, replicas: { [string]: any })
 	replica:Subscribe(player)
 	replicas.PlayerData = replica
 
+	-- Studio: workspace attribute DebugSlowData = N delays "loaded" by N s (simulates a slow
+	-- profile after a teleport, which is what live servers see).
+	local slow = game:GetService("RunService"):IsStudio() and workspace:GetAttribute("DebugSlowData")
+	if typeof(slow) == "number" and slow > 0 then
+		task.wait(slow)
+	end
 	loaded[player] = true
 	player:SetAttribute("DataLoaded", true)
 	loadedEvent:Fire(player)

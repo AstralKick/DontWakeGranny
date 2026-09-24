@@ -24,6 +24,7 @@ local house: Instance?
 local powerOn = true
 local powerToken = 0
 local cfg: any = nil
+local lampRoomsResolved = false
 local lamps: { { Root: Instance, Lights: { Light }, Bulbs: { BasePart }, Brightness: { [Light]: number } } } = {}
 
 local grade: ColorCorrectionEffect
@@ -44,6 +45,39 @@ local PRESETS = {
 		FogColor = Color3.fromRGB(230, 200, 190), ExposureCompensation = 0.2,
 		Tint = Color3.fromRGB(255, 240, 225), Saturation = 0.05, Contrast = 0.02,
 		AtmoDensity = 0.3, AtmoColor = Color3.fromRGB(255, 214, 190), AtmoDecay = Color3.fromRGB(255, 170, 150), AtmoHaze = 1.2,
+	},
+}
+
+-- Per-chapter night look (MapConfig Lighting key): overrides on top of PRESETS.Night.
+local CHAPTER_LOOK = {
+	House = {},
+	Garden = {
+		-- Big moon, blue-green haze over the lawn.
+		OutdoorAmbient = Color3.fromRGB(92, 110, 128), AtmoColor = Color3.fromRGB(64, 84, 96),
+		AtmoDensity = 0.42, Tint = Color3.fromRGB(220, 236, 250),
+	},
+	Institution = {
+		-- Sickly fluorescent green, flat contrast.
+		Ambient = Color3.fromRGB(46, 52, 50), OutdoorAmbient = Color3.fromRGB(80, 96, 100),
+		Tint = Color3.fromRGB(226, 246, 232), Saturation = -0.22, Contrast = 0.08,
+		AtmoColor = Color3.fromRGB(70, 86, 80),
+	},
+	Chapel = {
+		-- Cold stone, thick fog, candle warmth indoors.
+		Ambient = Color3.fromRGB(44, 42, 56), OutdoorAmbient = Color3.fromRGB(84, 88, 120),
+		AtmoDensity = 0.5, AtmoHaze = 2, AtmoColor = Color3.fromRGB(88, 88, 112),
+		Tint = Color3.fromRGB(222, 226, 255), Saturation = -0.2,
+	},
+	Fair = {
+		-- Warm orange-purple autumn night.
+		OutdoorAmbient = Color3.fromRGB(110, 84, 110), AtmoColor = Color3.fromRGB(104, 70, 88),
+		Tint = Color3.fromRGB(255, 232, 226), Saturation = 0, Contrast = 0.16,
+	},
+	Nightmare = {
+		-- Red-violet, heavy, wrong.
+		Ambient = Color3.fromRGB(52, 34, 48), OutdoorAmbient = Color3.fromRGB(100, 50, 70),
+		AtmoDensity = 0.5, AtmoColor = Color3.fromRGB(96, 40, 64), AtmoDecay = Color3.fromRGB(60, 16, 32),
+		Tint = Color3.fromRGB(255, 214, 224), Saturation = -0.25, Contrast = 0.22,
 	},
 }
 
@@ -102,7 +136,12 @@ end
 -- ------------------------------------------------------------------ lamps & power
 
 local function collectLamps()
+	table.clear(lamps)
+	lampRoomsResolved = false
 	for _, root in CollectionService:GetTagged("Lamp") do
+		if not (house and root:IsDescendantOf(house)) then
+			continue
+		end
 		local entry = { Root = root, Lights = {}, Bulbs = {}, Brightness = {} }
 		local list = root:GetDescendants()
 		if root:IsA("Light") then
@@ -129,7 +168,6 @@ end
 local ALWAYS_ON_RADIUS = 14
 local roomLit: { [BasePart]: boolean } = {}
 local allLit = false -- morning / intermission: everything on
-local lampRoomsResolved = false
 
 local function lampPosition(lamp): Vector3?
 	local b = lamp.Bulbs[1]
@@ -377,7 +415,11 @@ function EnvironmentService:ApplyNight(_n: number, nightCfg: any)
 	cfg = nightCfg
 	powerToken += 1
 	local preset = table.clone(PRESETS.Night)
-	local tint = CORRUPTION_TINT[nightCfg.Corruption] or PRESETS.Night.Tint
+	local look = CHAPTER_LOOK[shared("MapService"):GetChapter().Lighting or "House"] or {}
+	for k, v in look do
+		preset[k] = v
+	end
+	local tint = if nightCfg.Corruption > 0 then CORRUPTION_TINT[nightCfg.Corruption] else preset.Tint
 	local ev = svc("EventService"):Get()
 	if ev and ev.RedSky then
 		preset.OutdoorAmbient = Color3.fromRGB(90, 30, 36)
@@ -429,6 +471,11 @@ function EnvironmentService:Start()
 	house = workspace:WaitForChild("House", 20)
 	ensureEffects()
 	collectLamps()
+	shared("MapService"):OnChanged(function(newHouse)
+		house = newHouse
+		table.clear(roomLit)
+		collectLamps()
+	end)
 	apply(PRESETS.Night, nil, 0.1)
 	matchState("Power", true)
 	task.spawn(function()

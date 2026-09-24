@@ -21,6 +21,7 @@ local GamepadNav = require(script.Parent:WaitForChild("GamepadNav"))
 local ContextActionService = game:GetService("ContextActionService")
 
 local C = Theme.Color
+local MapConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("Config"):WaitForChild("MapConfig"))
 local CarPanel = {}
 
 local friendCache: { [number]: boolean } = {}
@@ -73,7 +74,7 @@ function CarPanel.Mount(ctx: any)
 
 	-- driver controls (right side)
 	local driver = UIKit.Box({ Name = "Driver", Size = UDim2.fromOffset(460, 190), Position = UDim2.new(1, 0, 0, 100), AnchorPoint = Vector2.new(1, 0), Parent = body })
-	local pickLabel = UIKit.Label({ Text = "Start at", Font = Theme.Font.Body, TextSize = Theme.Text.Small, Color = C.PaperDim, Stroke = false, XAlign = Enum.TextXAlignment.Left, Size = UDim2.fromOffset(200, 30), Parent = driver })
+	local pickLabel = UIKit.Label({ Text = "Start at", Font = Theme.Font.Body, TextSize = Theme.Text.Small, Color = C.PaperDim, Stroke = false, XAlign = Enum.TextXAlignment.Left, Size = UDim2.fromOffset(460, 30), Parent = driver })
 	local picker = UIKit.Box({ Name = "Picker", Size = UDim2.new(1, 0, 0, 70), Position = UDim2.fromOffset(0, 30), Parent = driver })
 	UIKit.List(picker, { Dir = Enum.FillDirection.Horizontal, Gap = 8, H = Enum.HorizontalAlignment.Left, V = Enum.VerticalAlignment.Center })
 	local friendsBtn = UIKit.Button({ Parent = driver, Text = "Anyone can ride", TextSize = 24, Color = C.Bruise, Size = UDim2.fromOffset(250, 76), Position = UDim2.new(0, 0, 1, 0), AnchorPoint = Vector2.new(0, 1) })
@@ -106,8 +107,8 @@ function CarPanel.Mount(ctx: any)
 
 	local pickerKey = ""
 	local seatKey = ""
-	local function rebuildPicker(checkpoints: { number }, selected: number)
-		local key = table.concat(checkpoints, ",")
+	local function rebuildPicker(checkpoints: { number }, selected: number, highest: number)
+		local key = table.concat(checkpoints, ",") .. "/" .. highest
 		if key == pickerKey then
 			-- same buttons: just recolor (keeps gamepad focus stable across 1 Hz updates)
 			for n, b in pickerButtons do
@@ -123,10 +124,13 @@ function CarPanel.Mount(ctx: any)
 		end
 		table.clear(pickerButtons)
 		for i, n in checkpoints do
+			-- One tile per chapter (map) you've reached; beaten ones get a gold star.
+			local chapter = MapConfig.ChapterFor(n)
+			local beaten = highest >= chapter.LastNight
 			local b = UIKit.Button({
 				Parent = picker,
-				Text = tostring(n),
-				TextSize = 30,
+				Text = chapter.Short or tostring(n),
+				TextSize = 20,
 				Color = if n == selected then C.Mustard else C.NightDeep:Lerp(C.Bruise, 0.4),
 				Size = UDim2.fromOffset(68, 70),
 				Corner = Theme.Corner.Round,
@@ -135,6 +139,9 @@ function CarPanel.Mount(ctx: any)
 					CarAction:FireServer("StartNight", n)
 				end,
 			})
+			if beaten then
+				UIKit.Label({ Text = "★", Font = Theme.Font.Button, TextSize = 22, Color = C.Mustard, Size = UDim2.fromOffset(24, 24), Position = UDim2.new(1, -2, 0, 2), AnchorPoint = Vector2.new(1, 0), ZIndex = 6, Parent = b.Instance })
+			end
 			b.Button.SelectionImageObject = UIKit.SelectionImage("Round")
 			b.Button.NextSelectionDown = friendsBtn.Button
 			pickerButtons[n] = b
@@ -205,11 +212,12 @@ function CarPanel.Mount(ctx: any)
 		if leader then
 			friendsBtn:SetText(if state.FriendsOnly then "Friends only" else "Anyone can ride")
 			friendsBtn:SetColor(if state.FriendsOnly then C.Rose else C.Bruise)
-			rebuildPicker(state.Checkpoints or { 1 }, state.StartNight or 1)
-			pickLabel.Text = "Start at night"
+			rebuildPicker(state.Checkpoints or { 1 }, state.StartNight or 1, state.Highest or 0)
+			local ch = MapConfig.ChapterFor(state.StartNight or 1)
+			pickLabel.Text = `Map: {ch.Name} · Nights {ch.FirstNight}–{ch.LastNight}`
 		else
 			local sn = state.StartNight or 1
-			riderInfo.Text = `Driver picked <font color="#E0B04F">Night {sn}</font>`
+			riderInfo.Text = `Driver picked <font color="#E0B04F">{MapConfig.ChapterFor(sn).Name}</font> · Night {sn}`
 		end
 		refreshFriends(state)
 		goBtn.Instance.Visible = leader and not state.Departing
@@ -292,6 +300,32 @@ function CarPanel.Mount(ctx: any)
 			open(state)
 		else
 			close()
+		end
+	end)
+
+	-- Getting out: WE own our character's physics, so stand up and step behind the van here
+	-- (a server-only move gets undone by the client still sitting in the seat).
+	Net.Event("CarExit").OnClientEvent:Connect(function(target)
+		if typeof(target) ~= "CFrame" then
+			return
+		end
+		local char = Players.LocalPlayer.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if not char or not hum then
+			return
+		end
+		hum.Sit = false
+		local seat = hum.SeatPart
+		local weld = seat and seat:FindFirstChild("SeatWeld")
+		if weld then
+			weld:Destroy()
+		end
+		hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+		task.wait()
+		char:PivotTo(target)
+		local root = char:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then
+			root.AssemblyLinearVelocity = Vector3.zero
 		end
 	end)
 

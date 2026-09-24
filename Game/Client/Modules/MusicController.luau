@@ -381,6 +381,7 @@ function MusicController:Start()
 	end
 	wind = Sfx.Loop("Wind", SoundService)
 	if wind then
+		wind:SetAttribute("Key", "Wind")
 		wind.SoundGroup = groups.SFX
 		if not PlaceRole.IsMatch then
 			wind.Volume *= 0.6
@@ -393,6 +394,29 @@ function MusicController:Start()
 			for _, attr in { "Phase", "GrandmaState", "Finale" } do
 				matchState:GetAttributeChangedSignal(attr):Connect(refreshMusic)
 			end
+			-- Each map can have its own ambient bed (AssetConfig.Sounds.Ambience_<MapId>);
+			-- maps without one keep the wind.
+			local function mapBed()
+				local id = matchState and matchState:GetAttribute("MapId")
+				local key = if typeof(id) == "string" then "Ambience_" .. id else nil
+				local def = key and AssetConfig.Sounds[key]
+				if not (def and def.Id ~= "") then
+					key = "Wind"
+				end
+				if wind and wind:GetAttribute("Key") == key then
+					return
+				end
+				if wind then
+					wind:Destroy()
+				end
+				wind = Sfx.Loop(key :: string, SoundService)
+				if wind then
+					wind:SetAttribute("Key", key)
+					wind.SoundGroup = groups.SFX
+				end
+			end
+			matchState:GetAttributeChangedSignal("MapId"):Connect(mapBed)
+			mapBed()
 		end
 		task.spawn(ambientLoop)
 		task.spawn(function()

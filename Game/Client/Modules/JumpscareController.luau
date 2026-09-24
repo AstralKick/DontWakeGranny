@@ -9,7 +9,8 @@
 --                              to WeightLate by Night 30). Night 31 uses only Halloween = true variants.
 --   JumpscareIntensity         per-night scaling (shake, FOV punch, distortion, duration, volume,
 --                              pitch); nights <= ComedicUntil get a bouncy line and a warm grade.
--- Motions (choreography, below in MOTIONS): Lunge · Grab · BehindYou · Drop · Peek · Scream · Rise.
+-- Motions (choreography, below in MOTIONS): Lunge · Grab · BehindYou · Drop · Peek · Scream · Rise,
+-- plus map-themed ones (variant Maps = { MapId }): Curtain · Rush · Beside · Pop · Crooked.
 -- Sound: each variant's Sound table = timed cues (Pre build-up, Hit replacing the Form sting when
 -- its AssetConfig Id is set, Extra layer, JumpscareScream) with night-scaled pitch, distortion,
 -- pitch-shift and optional reverb; all in the SFXDry group so Settings.SFX applies.
@@ -113,6 +114,8 @@ function JumpscareController:PickVariant(night: number): (string, { [string]: an
 		end
 	end
 	local halloween = night >= 31
+	local ms = ReplicatedStorage:FindFirstChild("MatchState")
+	local mapId = ms and ms:GetAttribute("MapId")
 	local k = math.clamp((night - 1) / 29, 0, 1)
 	local pool: { { key: string, w: number } } = {}
 	local total = 0
@@ -122,6 +125,10 @@ function JumpscareController:PickVariant(night: number): (string, { [string]: an
 			ok = v.Halloween == true
 		else
 			ok = v.Halloween ~= true and night >= (v.MinNight or 1) and night <= (v.MaxNight or 30)
+			-- Map-themed scares (Maps = { MapId, ... }) only happen on their own maps.
+			if ok and v.Maps then
+				ok = typeof(mapId) == "string" and table.find(v.Maps, mapId) ~= nil
+			end
 		end
 		if ok then
 			local w = lerp(v.Weight or 1, v.WeightLate or v.Weight or 1, k)
@@ -327,7 +334,7 @@ end
 
 type Out = { Cam: CFrame, Head: Vector3?, Rot: CFrame, Fov: number, Black: number, Light: number, Blur: number }
 
-local MOTIONS: { [string]: { Impact: number, StingAt: number, ScreamAt: number, Need: { Dir: string, Min: number }?, Update: (number, any, Out) -> () } } = {}
+local MOTIONS: { [string]: { Impact: number, StingAt: number, ScreamAt: number, Need: { Dir: string, Min: number }?, Setup: ((any, Instance, any) -> ())?, Update: (number, any, Out) -> () } } = {}
 
 -- She lunges at the camera out of the dark (the classic).
 MOTIONS.Lunge = {
@@ -470,6 +477,147 @@ MOTIONS.Rise = {
 		out.Light = 0.35 + 0.35 * math.abs(math.noise(t * 9, 2.2)) + 0.6 * ease((t - 0.42) / 0.2)
 		out.Black = if t < 0.1 then 1 - t / 0.1 else 0
 		out.Fov = ease((t - 0.6) / 0.2)
+	end,
+}
+
+-- ---------------------------------------------------------- map-themed motions
+-- These build their own little props in Setup(m, stage, variant) (stored in m.P) and move
+-- them in Update. They always run on the Void stage.
+
+local function prop(stage: Instance, size: Vector3, color: Color3, material: Enum.Material?): BasePart
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Size = size
+	p.Color = color
+	p.Material = material or Enum.Material.SmoothPlastic
+	p.Parent = stage
+	return p
+end
+
+local function elasticOut(x: number): number
+	x = math.clamp(x, 0, 1)
+	if x <= 0 or x >= 1 then
+		return x
+	end
+	return 2 ^ (-10 * x) * math.sin((x * 10 - 0.75) * (2 * math.pi) / 3) + 1
+end
+
+-- Garden washing line / care-home privacy curtain: a sheet sways in front of you... it whips
+-- aside and she's right behind it.
+MOTIONS.Curtain = {
+	Impact = 0.62,
+	StingAt = 0.5,
+	ScreamAt = 0.58,
+	Setup = function(m, stage, variant)
+		local sheet = prop(stage, Vector3.new(5.5, 7.5, 0.08) * m.S, variant.PropColor or Color3.fromRGB(236, 230, 214), Enum.Material.Fabric)
+		m.P = { Sheet = sheet }
+	end,
+	Update = function(t, m, out)
+		local whip = expoOut((t - 0.5) / 0.14)
+		local sway = math.sin(t * 5.5) * 0.06 * (1 - whip)
+		local sheet = m.P and m.P.Sheet
+		if sheet then
+			sheet.CFrame = m.O
+				* CFrame.new(whip * 5.2 * m.Sign * m.S + sway, 0.4 * m.S, -1.35 * m.S)
+				* CFrame.Angles(0, math.rad(75) * whip * m.Sign, math.sin(t * 3.2) * 0.03)
+		end
+		local lunge = expoOut((t - 0.56) / 0.16)
+		out.Head = m.Front(2.7 - 1.5 * lunge, 0.08)
+		out.Rot = m.Face
+		out.Cam = m.O * CFrame.Angles(math.rad(-1.5 * ease(t / 0.5)), 0, 0)
+		out.Light = if t < 0.5 then 0.45 else 1
+		out.Fov = ease((t - 0.54) / 0.2)
+	end,
+}
+
+-- Sunny Pines: the fluorescent tube strobes; every flash she's closer (wheelchair-fast).
+MOTIONS.Rush = {
+	Impact = 0.72,
+	StingAt = 0.68,
+	ScreamAt = 0.68,
+	Update = function(t, m, out)
+		local p = math.clamp((t - 0.12) / 0.58, 0, 1)
+		local stepped = math.floor(p * 6) / 6
+		local dist = if t < 0.7 then 9 - 7.4 * stepped ^ 1.3 else 1.6 - 0.45 * expoOut((t - 0.7) / 0.14)
+		out.Head = m.Front(dist, 0.06)
+		out.Rot = m.Face
+		out.Cam = m.O
+		local on = math.floor(t * 13) % 2 == 0
+		out.Light = if t >= 0.7 then 1 elseif on then (if m.Calm then 0.5 else 1) else 0.04
+		out.Fov = if t < 0.7 then 0.12 * p else expoOut((t - 0.7) / 0.12)
+	end,
+}
+
+-- St. Mildred's: a bell tolls in candle-dark... you turn to the side: she's standing right
+-- beside you.
+MOTIONS.Beside = {
+	Impact = 0.68,
+	StingAt = 0.52,
+	ScreamAt = 0.62,
+	Update = function(t, m, out)
+		local turn = ease((t - 0.46) / 0.16)
+		local drift = math.sin(t * 1.7) * 0.02
+		out.Cam = m.O * CFrame.Angles(0, (math.pi / 2) * turn * m.Sign + drift, 0)
+		local side = m.O * CFrame.Angles(0, (math.pi / 2) * m.Sign, 0)
+		local lunge = expoOut((t - 0.64) / 0.16)
+		out.Head = (side * CFrame.new(0, 0.05 * m.S, -(1.7 - 0.6 * lunge) * m.S)).Position
+		out.Rot = side.Rotation * CFrame.Angles(0, math.pi, 0)
+		out.Light = if t < 0.5 then 0.3 + 0.08 * math.noise(t * 6, 1.7) else 0.95
+		out.Fov = ease((t - 0.6) / 0.2)
+		out.Blur = if t > 0.46 and t < 0.64 then math.sin((t - 0.46) / 0.18 * math.pi) * 0.6 else 0
+	end,
+}
+
+-- Harvest Fair: a jack-in-the-box plays its tune... POP. She springs out on a wobbly spring.
+MOTIONS.Pop = {
+	Impact = 0.5,
+	StingAt = 0.46,
+	ScreamAt = 0.5,
+	Setup = function(m, stage, variant)
+		local c = variant.PropColor or Color3.fromRGB(196, 40, 52)
+		local box = prop(stage, Vector3.new(2.6, 2.6, 2.6) * m.S, c)
+		local lid = prop(stage, Vector3.new(2.8, 0.25, 2.8) * m.S, Color3.fromRGB(224, 176, 79))
+		local stripe = prop(stage, Vector3.new(2.66, 0.5, 2.66) * m.S, Color3.fromRGB(243, 233, 210))
+		m.P = { Box = box, Lid = lid, Stripe = stripe }
+	end,
+	Update = function(t, m, out)
+		local base = m.O * CFrame.new(0, -2.5 * m.S, -2.6 * m.S)
+		local P = m.P
+		if P then
+			P.Box.CFrame = base
+			P.Stripe.CFrame = base
+			local fly = expoOut((t - 0.46) / 0.3)
+			P.Lid.CFrame = base * CFrame.new(1.6 * fly * m.Sign * m.S, (1.42 + 3.2 * fly) * m.S, -0.8 * fly * m.S) * CFrame.Angles(math.rad(-120 * fly), 0, math.rad(40 * fly * m.Sign))
+		end
+		local spring = elasticOut((t - 0.46) / 0.42)
+		local lunge = expoOut((t - 0.9) / 0.16)
+		out.Head = m.Front(2.5 - 1.2 * lunge, -3.6 + 3.7 * spring)
+		out.Rot = m.Face * CFrame.Angles(0, 0, math.sin(t * 17) * 0.12 * (1 - ease((t - 0.8) / 0.3)))
+		out.Cam = m.O * CFrame.Angles(math.rad(-14 * (1 - ease((t - 0.44) / 0.2))), 0, 0)
+		out.Fov = math.max(0.35 * ease((t - 0.46) / 0.1), ease((t - 0.9) / 0.16))
+	end,
+}
+
+-- The Nightmare House: she stands there with her head bent sideways, much too far... it
+-- snaps straight with a crack and she comes at you.
+MOTIONS.Crooked = {
+	Impact = 0.7,
+	StingAt = 0.62,
+	ScreamAt = 0.66,
+	Update = function(t, m, out)
+		local snap = backOut((t - 0.54) / 0.1)
+		local tilt = math.rad(84) * m.Sign * (1 - snap)
+		local twitch = if t < 0.54 then math.sin(t * 40) * 0.015 * math.max(0, math.noise(t * 5, 3.1)) else 0
+		local lunge = expoOut((t - 0.66) / 0.16)
+		out.Head = m.Front(3.1 - 2.0 * lunge, 0.12)
+		out.Rot = m.Face * CFrame.Angles(0, 0, tilt + twitch)
+		out.Cam = m.O * CFrame.Angles(math.rad(-1 * ease(t / 0.5)), 0, 0)
+		out.Light = if t < 0.54 then 0.35 + 0.35 * math.max(0, math.noise(t * 7, 8.3)) else 1
+		out.Fov = if t < 0.54 then 0.1 else ease((t - 0.62) / 0.16)
 	end,
 }
 
@@ -644,6 +792,12 @@ local function runScare(formKey: string, cause: string)
 			return (origin * CFrame.new(0, y * S, -dist * S)).Position
 		end,
 	}
+	if motion.Setup then
+		local okSetup, errSetup = pcall(motion.Setup, m, stage, variant)
+		if not okSetup then
+			warn("[Jumpscare] setup", variant.Motion, errSetup)
+		end
+	end
 	local out: Out = { Cam = origin, Head = nil, Rot = m.Face, Fov = 0, Black = 0, Light = 1, Blur = 0 }
 
 	-- Post FX

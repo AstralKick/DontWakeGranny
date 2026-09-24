@@ -308,7 +308,7 @@ function HudScreen.Mount(ctx: any)
 		prizeLabel.Visible = true
 		local suffix = ""
 		if st == "Hidden" then
-			suffix = "<font color=\"#9CC5A1\"> · somewhere in the house</font>"
+			suffix = "<font color=\"#9CC5A1\"> · somewhere around here</font>"
 		elseif st == "Carried" then
 			local holder = MS:GetAttribute("PrizeHolder")
 			local who = if typeof(holder) == "string" and holder ~= "" then holder else "someone"

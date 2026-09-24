@@ -77,7 +77,7 @@ function MorningScreen.Mount(ctx: any)
 		local night = s.Night or (MS:GetAttribute("Night") or 1)
 		local survived = s.Survived == true
 		UIKit.Title({
-			Text = if survived then `YOU SURVIVED NIGHT {night}` else `YOUR TEAM SURVIVED NIGHT {night}`,
+			Text = if typeof(s.ChapterComplete) == "string" then "CHAPTER COMPLETE!" elseif survived then `YOU SURVIVED NIGHT {night}` else `YOUR TEAM SURVIVED NIGHT {night}`,
 			TextSize = if survived then 66 else 56,
 			Color = if survived then C.Mint else C.Rose,
 			Stroke = 5,
@@ -87,7 +87,7 @@ function MorningScreen.Mount(ctx: any)
 			Parent = body,
 		})
 		UIKit.Label({
-			Text = if survived then "The sun's up. Grandma's snoring again." else "You got caught — but you're back tonight.",
+			Text = if typeof(s.ChapterComplete) == "string" then `You beat {s.ChapterComplete}. Grandma's moving somewhere new...` elseif survived then "The sun's up. Grandma's snoring again." else "You got caught — but you're back tonight.",
 			Font = Theme.Font.Body,
 			TextSize = Theme.Text.Body,
 			Color = C.Bruise,
@@ -149,10 +149,10 @@ function MorningScreen.Mount(ctx: any)
 		end
 		local stamps: { Frame } = {}
 		if typeof(s.NextNewArea) == "string" and s.NextNewArea ~= "" then
-			table.insert(stamps, stamp(`NEW AREA: {s.NextNewArea}`, C.Blood, 3, -6))
+			table.insert(stamps, stamp(if typeof(s.NextChapter) == "string" then `NEW MAP: {string.upper(s.NextChapter)}` else `NEW AREA: {s.NextNewArea}`, C.Blood, 3, -6))
 		end
 		if typeof(s.Checkpoint) == "number" then
-			table.insert(stamps, stamp("CHECKPOINT UNLOCKED", C.Bruise, 4, 5))
+			table.insert(stamps, stamp("CHAPTER UNLOCKED · REPLAY ANY TIME", C.Bruise, 4, 5))
 		end
 
 		-- quiet Sugar Rush offer

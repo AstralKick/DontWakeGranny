@@ -35,6 +35,7 @@ local FULL_COUNTDOWN = 5
 local CarAction = Net.Event("CarAction") -- client -> server: ("Leave") | ("FriendsOnly", bool) | ("StartNight", n) | ("Go")
 local CarState = Net.Event("CarState") -- server -> client: (state table | nil)
 local CarDepart = Net.Event("CarDepart") -- server -> party: ()
+local CarExit = Net.Event("CarExit") -- server -> player: (standHere: CFrame) after getting out
 
 type Car = {
 	Model: Model,
@@ -133,6 +134,7 @@ local function stateFor(car: Car, viewer: Player)
 		StartNight = car.StartNight,
 		IsLeader = car.Leader == viewer,
 		Checkpoints = if car.Leader == viewer then unlockedCheckpoints(viewer) else nil,
+		Highest = DataService:Get(viewer, "HighestNight") or 0,
 		Occupants = names,
 		Departing = car.Departing,
 	}
@@ -160,6 +162,8 @@ local function refresh(car: Car)
 		CarState:FireClient(p, stateFor(car, p))
 	end
 end
+
+local behindCar: (car: Car) -> CFrame? -- defined below tryEnter
 
 local function exitCar(player: Player, silent: boolean?)
 	local car = playerCar[player]
@@ -196,9 +200,22 @@ local function exitCar(player: Player, silent: boolean?)
 			end
 		end
 		task.defer(function()
+			if not char.Parent then
+				return
+			end
+			local target = behindCar(car)
 			local exit = car.Model:FindFirstChild("Exit") :: BasePart?
-			if exit and char.Parent then
-				char:PivotTo(exit.CFrame + Vector3.new(0, 3, 0))
+			if not target and exit then
+				target = exit.CFrame + Vector3.new(0, 3, 0)
+			end
+			if target then
+				char:PivotTo(target)
+				-- The client owns its character's physics: if only the server unseats + moves
+				-- it, the client (still sitting) snaps back into the seat, which sits inside the
+				-- queue zone and re-queues them. Let the client stand up and move itself too.
+				if player.Parent then
+					CarExit:FireClient(player, target)
+				end
 			end
 		end)
 	end
@@ -206,6 +223,56 @@ local function exitCar(player: Player, silent: boolean?)
 		CarState:FireClient(player, nil)
 	end
 	refresh(car)
+end
+
+-- Where someone getting out stands: BEHIND the van (not beside the side door, which is next
+-- to the queue zones and would drop them straight into the neighbouring van), facing away.
+-- The van drives along its LookVector, so "behind" is -LookVector.
+behindCar = function(car: Car): CFrame?
+	local model = car.Model
+	local cf, size = model:GetBoundingBox()
+	local back = -model:GetPivot().LookVector
+	back = Vector3.new(back.X, 0, back.Z)
+	if back.Magnitude < 0.1 then
+		return nil
+	end
+	back = back.Unit
+	-- half the van's length along that axis + a couple of steps
+	local halfLen = math.abs(cf:VectorToObjectSpace(back).X) * size.X / 2
+		+ math.abs(cf:VectorToObjectSpace(back).Y) * size.Y / 2
+		+ math.abs(cf:VectorToObjectSpace(back).Z) * size.Z / 2
+	local spot = cf.Position + back * (halfLen + 4)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local exclude: { Instance } = { model }
+	for _, pl in Players:GetPlayers() do
+		if pl.Character then
+			table.insert(exclude, pl.Character)
+		end
+	end
+	params.FilterDescendantsInstances = exclude
+	-- nothing solid in the way between the van's back and the spot
+	local blocked = workspace:Raycast(cf.Position + back * halfLen, back * 4, params)
+	if blocked and blocked.Instance.CanCollide then
+		return nil
+	end
+	local ground = workspace:Raycast(spot + Vector3.new(0, 10, 0), Vector3.new(0, -40, 0), params)
+	if not ground then
+		return nil
+	end
+	local pos = ground.Position + Vector3.new(0, 3, 0)
+	-- don't drop them inside another van's queue zone
+	for _, other in cars do
+		local zone = other.Model:FindFirstChild("QueueZone") :: BasePart?
+		if zone then
+			local rel = zone.CFrame:PointToObjectSpace(pos)
+			local h = zone.Size / 2 + Vector3.new(2, 4, 2)
+			if math.abs(rel.X) < h.X and math.abs(rel.Y) < h.Y and math.abs(rel.Z) < h.Z then
+				return nil
+			end
+		end
+	end
+	return CFrame.lookAt(pos, pos + back)
 end
 
 local function tryEnter(player: Player, car: Car)

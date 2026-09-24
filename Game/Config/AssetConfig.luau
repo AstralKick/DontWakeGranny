@@ -29,6 +29,15 @@ AssetConfig.Sounds = {
 	GrandmaChaseScream = { Id = "", Volume = 1, Max = 120 },
 	GrandmaLaugh = { Id = "", Volume = 1, Max = 90 },
 	Voice_Generic = { Id = "", Volume = 1, Max = 70 },
+	-- Per-category voice clips (optional; each falls back to Voice_Generic). See GrandmaConfig.VoiceLines.
+	Voice_Asleep = { Id = "", Volume = 0.8, Max = 50 },
+	Voice_Stirring = { Id = "", Volume = 0.9, Max = 60 },
+	Voice_Searching = { Id = "", Volume = 1, Max = 70 },
+	Voice_Chasing = { Id = "", Volume = 1, Max = 90 },
+	Voice_Lost = { Id = "", Volume = 1, Max = 70 },
+	Voice_Caught = { Id = "", Volume = 1, Max = 90 },
+	Voice_HidingCheck = { Id = "", Volume = 0.9, Max = 50 },
+	Voice_Camping = { Id = "", Volume = 1, Max = 70 }, -- "Is somebody in my wardrobe?" (she comes for a camper)
 
 	-- Jumpscares (per form, see GrandmaConfig.Forms)
 	JumpscareNormal = { Id = "rbxassetid://1846887425", Volume = 1.4 }, -- PLACEHOLDER orchestral hit
@@ -50,6 +59,19 @@ AssetConfig.Sounds = {
 	Jumpscare_Scream = { Id = "rbxassetid://72748337174109", Volume = 1.3 }, -- PLACEHOLDER (community upload) shriek
 	Jumpscare_TrickOrTreatPre = { Id = "rbxassetid://9114572131", Volume = 1.2 }, -- PLACEHOLDER PSE possessed giggle (stand-in cackle)
 	Jumpscare_TrickOrTreat = { Id = "", Volume = 1.4 }, -- TODO pumpkin crunch / bell hit (falls back to the Form sting)
+	-- Map-themed scares (GrandmaConfig.JumpscareVariants with Maps). Empty Hit = the Form sting.
+	Jumpscare_SheetPre = { Id = "rbxassetid://9113819190", Volume = 1 }, -- PLACEHOLDER PSE cloth flap; TODO wet sheet flapping in the wind (Back Garden)
+	Jumpscare_Sheet = { Id = "", Volume = 1.4 }, -- TODO cloth whip + shriek
+	Jumpscare_CurtainPre = { Id = "rbxassetid://9113819689", Volume = 1 }, -- PLACEHOLDER PSE cloth flap; TODO curtain rings sliding on a rail (Sunny Pines)
+	Jumpscare_Curtain = { Id = "", Volume = 1.4 }, -- TODO curtain rip + scream
+	Jumpscare_WheelchairPre = { Id = "rbxassetid://9120658777", Volume = 1 }, -- PLACEHOLDER PSE squeaky wheel; TODO fluorescent buzz + squeaky wheel, getting closer
+	Jumpscare_Wheelchair = { Id = "", Volume = 1.4 }, -- TODO metal crash + shriek
+	Jumpscare_TollPre = { Id = "rbxassetid://1835336539", Volume = 1 }, -- PLACEHOLDER APM church bell; TODO one deep church bell toll (St. Mildred's)
+	Jumpscare_Toll = { Id = "", Volume = 1.4 }, -- TODO choir-like stab / organ chord hit
+	Jumpscare_JackInTheBoxPre = { Id = "rbxassetid://9120219515", Volume = 0.9 }, -- PLACEHOLDER PSE toy piano; TODO music box "Pop Goes the Weasel", slowing (Harvest Fair)
+	Jumpscare_JackInTheBox = { Id = "", Volume = 1.4 }, -- TODO spring "boing" + cackle
+	Jumpscare_CrookedPre = { Id = "rbxassetid://9119559518", Volume = 1.1 }, -- PLACEHOLDER PSE bone crack; TODO slow neck/bone crack (Nightmare House)
+	Jumpscare_Crooked = { Id = "", Volume = 1.4 }, -- TODO deep distorted hit + scream
 
 	-- House
 	DoorCreak = { Id = "rbxassetid://9120839174", Volume = 0.8, Max = 60 },
@@ -67,6 +89,13 @@ AssetConfig.Sounds = {
 	ClockTick = { Id = "rbxasset://sounds/clickfast.wav", Volume = 0.35 }, -- PLACEHOLDER: last-minute countdown tick
 	Thunder = { Id = "rbxassetid://9120018695", Volume = 0.5 },
 	Wind = { Id = "rbxassetid://9114057128", Volume = 0.25, Looped = true },
+	-- Per-map ambient beds (loop; empty = keep the Wind). Keys are Ambience_<MapId>.
+	Ambience_GrandmasHouse = { Id = "", Volume = 0.25, Looped = true }, -- TODO: house tone, clock tick, rain on windows
+	Ambience_BackGarden = { Id = "", Volume = 0.3, Looped = true }, -- TODO: crickets, owl, leaves rustling
+	Ambience_SunnyPines = { Id = "", Volume = 0.25, Looped = true }, -- TODO: fluorescent buzz, distant heart monitor, radiator ticks
+	Ambience_StMildreds = { Id = "", Volume = 0.3, Looped = true }, -- TODO: cold wind through stone, distant organ drone, crows
+	Ambience_HarvestFair = { Id = "", Volume = 0.3, Looped = true }, -- TODO: slowed, detuned calliope/carousel music, creaking rides
+	Ambience_NightmareHouse = { Id = "", Volume = 0.3, Looped = true }, -- TODO: low drone, reversed lullaby, heartbeat-like thumps
 	Whisper = { Id = "", Volume = 0.6 },
 	WindupToy = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 1, Max = 90 },
 	LanternLight = { Id = "", Volume = 1, Max = 60 },

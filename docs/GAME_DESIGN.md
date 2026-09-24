@@ -34,7 +34,7 @@ State machine: `Asleep → Stirring → Searching → Chasing → Attacking → 
 - Asleep: snores in her armchair. Noise fills Alert. Stirring gives you a 5-second window to go quiet.
 - Searching: walks to the noise, looks around, checks nearby search nodes (and hiding spots on later nights).
 - Chasing: she's seen you. Music, red grade, FOV punch and heartbeat all kick in. Break line of sight to lose her.
-- Hiding: wardrobes, closets, under beds. If she saw you get in, she drags you out. If she checks your spot, you get a **Hold Your Breath** check.
+- Hiding: wardrobes, closets, under beds. If she saw you get in, she drags you out. If she checks your spot, you get a **Hold Your Breath** check. **No camping:** hide too long (75 s on Night 1, down to 30 s by Night 30) and she gets up, even from her chair, and walks straight to your spot. If you're still inside when she arrives she pulls you out, with no breath save. An AIR meter and warnings ("stuffy…", "she can smell you…", "SHE'S COMING FOR YOU") give you time to slip out.
 - Doors block her sight. She opens them in about 0.5 s, which is enough time to slam one in her face.
 
 Abilities unlock by night (see `NightConfig`): hears doors (N6), reacts to flashlights (N11), checks hiding spots and learns favourite spots (N16), locks doors (N18), stalks outside rooms (N20), cuts the power (N21), fake sleep (N23), appears unexpectedly (N24), Nightmare form (N26).
@@ -84,6 +84,6 @@ Match state replicates through attributes on `ReplicatedStorage.MatchState` and 
 
 ## Testing in Studio
 - Press Play in **Granny's House** to start a solo run straight away. Teleports don't work in Studio, so Mom's Car in the Lobby shows a notice instead of departing.
-- These Workspace attributes are Studio-only (`DebugService`): `DebugStartNight` (1–31), `DebugEvent` (EventConfig key), `DebugNoCatch` (true = Grandma can't catch you).
+- These Workspace attributes are Studio-only (`DebugService`): `DebugStartNight` (1–31), `DebugEvent` (EventConfig key), `DebugNoCatch` (true = Grandma can't catch you), `DebugCampLimit` (seconds of hiding before she comes for you; default GrandmaConfig.AI.CampLimit).
 - Setting `workspace:SetAttribute("DebugCmd", "<cmd>")` from the server command bar runs one of: `wake`, `chase`, `checkhide`, `noise 40`, `endnight`, `power`.
 - Compile-check everything in Edit mode by running `loadstring(module.Source)` over the synced modules with execute_luau.

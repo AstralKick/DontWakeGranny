@@ -194,16 +194,27 @@ function NoiseService:Start()
 	if not PlaceRole.IsMatch then
 		return
 	end
-	for _, board in CollectionService:GetTagged("Creaky") do
-		if board:IsA("BasePart") then
-			board.Touched:Connect(function(hit)
-				onCreak(board, hit)
-			end)
+	-- Tagged templates of the inactive maps sit in ServerStorage: only hook the active map.
+	local function bindMap(house: Instance?)
+		if not house then
+			return
+		end
+		table.clear(broken)
+		for _, board in CollectionService:GetTagged("Creaky") do
+			if board:IsA("BasePart") and board:IsDescendantOf(house) then
+				board.Touched:Connect(function(hit)
+					onCreak(board, hit)
+				end)
+			end
+		end
+		for _, obj in CollectionService:GetTagged("Breakable") do
+			if obj:IsDescendantOf(house) then
+				hookBreakable(obj)
+			end
 		end
 	end
-	for _, obj in CollectionService:GetTagged("Breakable") do
-		hookBreakable(obj)
-	end
+	bindMap(workspace:WaitForChild("House", 20))
+	shared("MapService"):OnChanged(bindMap)
 	Players.PlayerRemoving:Connect(function(p)
 		creakCooldown[p] = nil
 	end)

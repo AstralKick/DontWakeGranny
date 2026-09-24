@@ -142,7 +142,8 @@ GrandmaConfig.Forms = {
 -- sound / flash colour / line / base shake+FOV+distortion; a variant picks the choreography
 -- and multiplies the numbers. JumpscareController picks one per catch: weighted random over
 -- the variants with MinNight <= Night <= (MaxNight or 30). Night 31 only uses Halloween = true.
---   Motion      choreography in JumpscareController: Lunge · Grab · BehindYou · Drop · Peek · Scream · Rise
+--   Motion      choreography in JumpscareController: Lunge · Grab · BehindYou · Drop · Peek · Scream · Rise,
+--               and the map-themed Curtain · Rush · Beside · Pop · Crooked (always on the Void stage)
 --               (several variants may share a Motion with different numbers)
 --   Stage       "Void" (dark stage far above the map) or "World" (right where you stand; falls
 --               back to Void when there's no room behind/in front of the camera)
@@ -150,6 +151,7 @@ GrandmaConfig.Forms = {
 --   Duration    seconds (clamped 1.2–1.8 after intensity)
 --   Shake / FOV / Distortion   multipliers on the Form's values (default 1)
 --   Line        optional override of the Form's line
+--   Maps        { MapId, ... }: only on these maps (map-themed scares) · PropColor: stage prop colour
 --   Sound       per-variant sound design (all optional; every key is an AssetConfig.Sounds key):
 --     Hit / HitAt      the main sting, REPLACES the Form's Sound when its Id is set (else Form sting)
 --     Pre / PreAt      build-up before the hit (whisper, creak, click...)   · Extra / ExtraAt  one more layer
@@ -189,6 +191,41 @@ GrandmaConfig.JumpscareVariants = {
 		Motion = "Scream", Stage = "Void", MinNight = 21, Weight = 4, WeightLate = 7, Duration = 1.3, Shake = 1.35, Distortion = 1.3, FOV = 1.2,
 		-- one long, distorted scream
 		Sound = { Hit = "Jumpscare_Scream", Pitch = { 0.95, 0.8 }, Distortion = { 0.3, 0.75 }, PitchShift = { 0.95, 0.8 }, Volume = 1.1 },
+	},
+	-- Map-themed scares: Maps = only on these maps (see MapConfig). Weighted high so roughly
+	-- a third to half of the catches on a map use its own scare.
+	Sheet = {
+		Motion = "Curtain", Stage = "Void", Maps = { "BackGarden" }, Weight = 7, WeightLate = 7, Duration = 1.55,
+		PropColor = Color3.fromRGB(236, 230, 214), Line = "Peekaboo, dearie.",
+		-- sheet flapping on the washing line -> whip + scream
+		Sound = { Pre = "Jumpscare_SheetPre", PreAt = 0, Hit = "Jumpscare_Sheet", Pitch = { 1.05, 0.9 }, Distortion = { 0.05, 0.4 } },
+	},
+	Curtain = {
+		Motion = "Curtain", Stage = "Void", Maps = { "SunnyPines" }, Weight = 5, WeightLate = 5, Duration = 1.55,
+		PropColor = Color3.fromRGB(170, 204, 196), Line = "Lights out means BED.",
+		-- privacy-curtain rings rattling -> rip it open
+		Sound = { Pre = "Jumpscare_CurtainPre", PreAt = 0, Hit = "Jumpscare_Curtain", Pitch = { 1.05, 0.9 }, Distortion = { 0.05, 0.4 } },
+	},
+	Wheelchair = {
+		Motion = "Rush", Stage = "Void", Maps = { "SunnyPines" }, Weight = 6, WeightLate = 6, Duration = 1.5, Shake = 1.15,
+		-- buzzing tube light + squeaky wheels getting closer -> hit
+		Sound = { Pre = "Jumpscare_WheelchairPre", PreAt = 0, Hit = "Jumpscare_Wheelchair", Pitch = { 1.05, 0.9 }, Distortion = { 0.1, 0.45 } },
+	},
+	Toll = {
+		Motion = "Beside", Stage = "Void", Maps = { "StMildreds" }, Weight = 7, WeightLate = 7, Duration = 1.6,
+		-- one deep bell toll in the dark -> she's beside you
+		Sound = { Pre = "Jumpscare_TollPre", PreAt = 0, Hit = "Jumpscare_Toll", Pitch = { 1, 0.85 }, Distortion = { 0.05, 0.4 }, Reverb = true },
+	},
+	JackInTheBox = {
+		Motion = "Pop", Stage = "Void", Maps = { "HarvestFair" }, Weight = 7, WeightLate = 7, Duration = 1.6, Line = "POP!",
+		PropColor = Color3.fromRGB(196, 40, 52),
+		-- music-box "Pop Goes the Weasel" slowing down -> spring boing + shriek
+		Sound = { Pre = "Jumpscare_JackInTheBoxPre", PreAt = 0, Hit = "Jumpscare_JackInTheBox", Pitch = { 1.1, 0.9 }, Distortion = { 0.05, 0.4 } },
+	},
+	Crooked = {
+		Motion = "Crooked", Stage = "Void", Maps = { "NightmareHouse" }, Weight = 7, WeightLate = 7, Duration = 1.65, Distortion = 1.2,
+		-- dripping silence, a slow neck crack -> distorted hit
+		Sound = { Pre = "Jumpscare_CrookedPre", PreAt = 0.46, Hit = "Jumpscare_Crooked", Pitch = { 0.95, 0.8 }, Distortion = { 0.3, 0.7 }, Reverb = true },
 	},
 	TrickOrTreat = {
 		Motion = "Rise", Stage = "Void", Halloween = true, Weight = 1, Duration = 1.7, Line = "TRICK. OR. TREAT.",
@@ -271,6 +308,37 @@ GrandmaConfig.Outfits = {
 	{ Name = "Grave Dirt", MinNight = 26, MaxNight = 30,
 		Top = C(70, 64, 52), TopTrim = C(48, 42, 34), Buttons = C(120, 110, 90), Dress = C(96, 88, 70), DressTrim = C(48, 42, 34),
 		Pattern = { C(60, 54, 44), C(80, 72, 58), C(60, 54, 44) }, Collar = C(140, 130, 110), Slippers = C(48, 42, 34), SlipperTrim = C(80, 72, 58), Needles = { C(48, 42, 34), C(120, 110, 90) } },
+	-- Chapter wardrobes (Maps = only on these maps, 4x as likely there; see GrandmaRig.PickOutfit).
+	{ Name = "Potting Shed", Maps = { "BackGarden" },
+		Top = C(122, 140, 88), TopTrim = C(86, 100, 60), Buttons = C(150, 110, 70), Dress = C(196, 178, 140), DressTrim = C(122, 140, 88),
+		Pattern = { C(217, 122, 138), C(224, 176, 79), C(156, 197, 161) }, Collar = C(236, 226, 206), Slippers = C(70, 90, 60), SlipperTrim = C(120, 100, 70), Needles = { C(122, 140, 88), C(150, 110, 70) } },
+	{ Name = "Prize Marrow", Maps = { "BackGarden" },
+		Top = C(224, 176, 79), TopTrim = C(160, 120, 50), Buttons = C(92, 120, 70), Dress = C(236, 220, 176), DressTrim = C(92, 120, 70),
+		Pattern = { C(92, 120, 70), C(200, 90, 110), C(92, 120, 70) }, Collar = C(243, 233, 210), Slippers = C(92, 120, 70), SlipperTrim = C(224, 176, 79), Needles = { C(92, 120, 70), C(224, 176, 79) } },
+	{ Name = "Visiting Hours", Maps = { "SunnyPines" },
+		Top = C(170, 200, 214), TopTrim = C(120, 150, 170), Buttons = C(243, 233, 210), Dress = C(214, 228, 232), DressTrim = C(120, 150, 170),
+		Pattern = { C(243, 233, 210), C(156, 197, 161), C(170, 200, 214) }, Collar = C(243, 233, 210), Slippers = C(236, 236, 230), SlipperTrim = C(170, 200, 214), Needles = { C(120, 150, 170), C(243, 233, 210) } },
+	{ Name = "Bingo Night", Maps = { "SunnyPines" },
+		Top = C(236, 160, 120), TopTrim = C(190, 110, 80), Buttons = C(243, 233, 210), Dress = C(156, 197, 161), DressTrim = C(190, 110, 80),
+		Pattern = { C(236, 160, 120), C(243, 233, 210), C(224, 176, 79) }, Collar = C(243, 233, 210), Slippers = C(236, 160, 120), SlipperTrim = C(243, 233, 210), Needles = { C(190, 110, 80), C(156, 197, 161) } },
+	{ Name = "Evensong", Maps = { "StMildreds" },
+		Top = C(60, 54, 80), TopTrim = C(214, 178, 84), Buttons = C(214, 178, 84), Dress = C(88, 78, 110), DressTrim = C(214, 178, 84),
+		Pattern = { C(214, 178, 84), C(200, 196, 210), C(214, 178, 84) }, Collar = C(236, 232, 224), Slippers = C(40, 36, 48), SlipperTrim = C(214, 178, 84), Needles = { C(214, 178, 84), C(60, 54, 80) } },
+	{ Name = "Graveside Grey", Maps = { "StMildreds" },
+		Top = C(110, 110, 118), TopTrim = C(70, 70, 80), Buttons = C(40, 36, 44), Dress = C(150, 150, 158), DressTrim = C(70, 70, 80),
+		Pattern = { C(90, 90, 100), C(120, 90, 110), C(90, 90, 100) }, Collar = C(210, 206, 200), Slippers = C(50, 48, 54), SlipperTrim = C(110, 110, 118), Needles = { C(70, 70, 80), C(150, 150, 158) } },
+	{ Name = "Candy Apple", Maps = { "HarvestFair" },
+		Top = C(196, 40, 52), TopTrim = C(130, 24, 36), Buttons = C(243, 233, 210), Dress = C(243, 220, 190), DressTrim = C(196, 40, 52),
+		Pattern = { C(196, 40, 52), C(92, 150, 120), C(224, 176, 79) }, Collar = C(243, 233, 210), Slippers = C(92, 150, 120), SlipperTrim = C(243, 233, 210), Needles = { C(196, 40, 52), C(224, 176, 79) } },
+	{ Name = "Ringmaster", Maps = { "HarvestFair" },
+		Top = C(120, 40, 70), TopTrim = C(224, 176, 79), Buttons = C(224, 176, 79), Dress = C(40, 90, 100), DressTrim = C(224, 176, 79),
+		Pattern = { C(224, 176, 79), C(243, 233, 210), C(120, 40, 70) }, Collar = C(243, 233, 210), Slippers = C(30, 26, 34), SlipperTrim = C(224, 176, 79), Needles = { C(224, 176, 79), C(40, 90, 100) } },
+	{ Name = "Nursery Rhyme", Maps = { "NightmareHouse" },
+		Top = C(236, 200, 214), TopTrim = C(150, 50, 70), Buttons = C(150, 50, 70), Dress = C(214, 226, 236), DressTrim = C(150, 50, 70),
+		Pattern = { C(150, 50, 70), C(90, 30, 50), C(150, 50, 70) }, Collar = C(243, 233, 210), Slippers = C(236, 200, 214), SlipperTrim = C(150, 50, 70), Needles = { C(150, 50, 70), C(214, 226, 236) } },
+	{ Name = "Rootbound", Maps = { "NightmareHouse" },
+		Top = C(60, 30, 40), TopTrim = C(120, 20, 40), Buttons = C(200, 60, 60), Dress = C(80, 50, 56), DressTrim = C(140, 30, 50),
+		Pattern = { C(140, 30, 50), C(60, 30, 40), C(140, 30, 50) }, Collar = C(170, 150, 150), Slippers = C(40, 24, 28), SlipperTrim = C(140, 30, 50), Needles = { C(140, 30, 50), C(60, 30, 40) } },
 	{ Name = "Halloween Witch", Nights = { 31 },
 		Top = C(30, 26, 34), TopTrim = C(255, 140, 20), Buttons = C(255, 140, 20), Dress = C(64, 40, 76), DressTrim = C(255, 140, 20),
 		Pattern = { C(255, 140, 20), C(140, 200, 80), C(255, 140, 20) }, Collar = C(30, 26, 34), Slippers = C(255, 140, 20), SlipperTrim = C(30, 26, 34), Needles = { C(255, 140, 20), C(140, 200, 80) } },
@@ -280,6 +348,8 @@ GrandmaConfig.Outfits = {
 GrandmaConfig.AI = {
 	TickRate = 0.1,
 	StirDuration = 5,
+	WakeAt = 88, -- alert (0..100) at which a stirring Grandma gets up (the HUD ring is alert / 100)
+	MaxStirTime = 11, -- stirring this long without calming below the stir line = she gets up anyway
 	WakeDuration = 1.6, -- stand-up time before she starts moving (fair warning)
 	AttackPause = 2.6,
 	LookAroundTime = 2.2,
@@ -298,6 +368,13 @@ GrandmaConfig.AI = {
 	PowerCutCooldown = 45,
 	LoseTargetLookTime = 2.5,
 	BathroomBreakAt = 40, -- seconds into night 1/2 for her scripted wander
+	-- Camping: stay hidden too long and she comes for you (even from her chair). The hide timer
+	-- fills while you're hidden and drains CampDecay x as fast while you're out. At the limit
+	-- she walks straight to your spot and pulls you out if you're still in it (no breath save).
+	CampLimit = { 75, 30 }, -- seconds, Night 1 -> Night 30 (lerped); Night 31 uses the last
+	CampWarnAt = 0.6, -- fraction of the limit where the "she can smell you" warning starts
+	CampDecay = 2,
+	CampAfterCheck = 0.35, -- the timer drops to this fraction once she has come and gone
 }
 
 -- Voice lines by tier (NightConfig.VoiceTier). Shown as a bubble above her + optional sound.
@@ -338,6 +415,12 @@ GrandmaConfig.VoiceLines = {
 		[2] = { "Naughty!", "Into the cupboard with you!", "Caught one!" },
 		[3] = { "One less.", "Delicious.", "Stay forever." },
 		[4] = { "MINE.", "Next.", "Who's next, dearies?" },
+	},
+	Camping = {
+		[1] = { "Is somebody in my wardrobe?", "Come out, come out, sweetie...", "Grandma knows where you are!" },
+		[2] = { "I can hear you in there.", "Hiding again, dearie?", "Coming to tuck you in..." },
+		[3] = { "I can SMELL you in there.", "Such a long time in the dark...", "Knock knock." },
+		[4] = { "I'm coming in.", "No more hiding.", "Found you. FOUND YOU." },
 	},
 	HidingCheck = {
 		[1] = { "Anybody in here?" },

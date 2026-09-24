@@ -72,6 +72,9 @@ local sayId = 0
 local lastFootstep = 0
 local sawEnter: { [Player]: any } = {}
 local spotUsage: { [any]: number } = {}
+-- Camping (AI.CampLimit): seconds each player has spent hidden, and who she's coming for.
+local campTime: { [Player]: number } = {}
+local campTarget: Player? = nil
 
 local sleepSpot: CFrame = CFrame.new(0, 3, 0)
 local searchNodes: { BasePart } = {}
@@ -384,6 +387,88 @@ local function tryHidingCheck(): boolean
 	return false
 end
 
+-- ------------------------------------------------------------------ camping
+-- Hide too long and she comes to get you. Player attributes for the UI:
+--   HideHeat 0..1 (how close you are to the limit), Hunted (she's on her way to YOUR spot).
+
+local function campLimit(): number
+	-- Studio: workspace attribute DebugCampLimit = seconds overrides it for testing.
+	local dbg = game:GetService("RunService"):IsStudio() and workspace:GetAttribute("DebugCampLimit")
+	if typeof(dbg) == "number" and dbg > 0 then
+		return dbg
+	end
+	local night = (cfg and cfg.Night) or 1
+	local k = math.clamp((night - 1) / 29, 0, 1)
+	local lim = AI.CampLimit or { 75, 30 }
+	return lim[1] + (lim[2] - lim[1]) * k
+end
+
+local function endCamp(found: boolean?)
+	local p = campTarget
+	campTarget = nil
+	if p then
+		p:SetAttribute("Hunted", false)
+		-- She came and went: the timer drops a lot, but not to zero (don't just hop back in).
+		campTime[p] = math.min(campTime[p] or 0, campLimit() * (AI.CampAfterCheck or 0.35))
+		if found == false then
+			campTime[p] = 0
+		end
+	end
+end
+
+local function campTick(dt: number)
+	local limit = campLimit()
+	local match = svc("MatchService")
+	local interaction = svc("InteractionService")
+	local worst: Player?, worstTime = nil, 0
+	for _, p in match:GetAlivePlayers() do
+		local tNow = campTime[p] or 0
+		if p:GetAttribute("Hidden") then
+			tNow += dt
+		else
+			tNow = math.max(0, tNow - dt * (AI.CampDecay or 2))
+		end
+		campTime[p] = tNow
+		local heat = math.clamp(tNow / limit, 0, 1)
+		local shown = p:GetAttribute("HideHeat") or 0
+		if math.abs(heat - shown) >= 0.02 or (heat == 0 and shown ~= 0) or (heat == 1 and shown ~= 1) then
+			p:SetAttribute("HideHeat", math.floor(heat * 100 + 0.5) / 100)
+		end
+		if p:GetAttribute("Hidden") and tNow >= limit and tNow > worstTime then
+			worst, worstTime = p, tNow
+		end
+	end
+
+	-- She was coming for someone and got pulled away (a chase, a distraction...): let it go.
+	if campTarget and state ~= "CheckingHiding" then
+		endCamp()
+	end
+	if campTarget or not worst then
+		return
+	end
+	-- Busy with something more urgent.
+	if state == "Chasing" or state == "Attacking" or (state == "CheckingHiding" and checkPhase == 1) then
+		return
+	end
+	local spot = interaction:SpotOf(worst)
+	if not spot then
+		return
+	end
+	campTarget = worst
+	worst:SetAttribute("Hunted", true)
+	local wasAsleep = state == "Asleep" or state == "FakeSleep" or state == "Stirring"
+	rig.Root.Anchored = false
+	fakeSleeping = false
+	if wasAsleep then
+		Sfx.Play("GrandmaWake", rig.Head)
+	end
+	checkSpot = spot
+	checkPhase = 0
+	setState("CheckingHiding")
+	mover:SetGoal(spot.Front.Position)
+	say("Camping", true)
+end
+
 -- Called by InteractionService when a player enters a hiding spot.
 function GrandmaService:OnPlayerHid(p: Player, spot: any)
 	spotUsage[spot] = (spotUsage[spot] or 0) + 1
@@ -516,6 +601,9 @@ local function tick(dt: number)
 		Sfx.Play("GrandmaFootstep", rig.Root, { PlaybackSpeed = 0.85 + math.random() * 0.2 })
 	end
 
+	-- Camping in a hiding spot too long brings her straight to it.
+	campTick(dt)
+
 	if state == "Asleep" then
 		-- She keeps listening for a moment after each noise before settling back down, so a
 		-- door + a pickup + a footstep in a row genuinely add up.
@@ -570,12 +658,17 @@ local function tick(dt: number)
 			wake(nil)
 			return
 		end
-		if alert >= 100 then
+		-- "Almost" must resolve: she wakes a little before the ring is visually full, and if
+		-- she keeps stirring (you never let it drop back below the stir line) she gets up anyway.
+		if alert >= (AI.WakeAt or 88) then
 			wake(investigatePos)
 		elseif t > stirUntil then
 			if alert < cfg.StirThreshold then
 				say("Lost")
 				setState("Asleep")
+			elseif t - stateSince > (AI.MaxStirTime or 11) then
+				rig.Root.Anchored = false
+				wake(investigatePos)
 			else
 				stirUntil = t + 2
 			end
@@ -726,6 +819,17 @@ local function tick(dt: number)
 				rig.Model:SetAttribute("Checking", true)
 				checkUntil = t + AI.HoldBreathTime + 0.4
 				local occupant = spot.Occupant
+				if campTarget then
+					-- She came for a camper: still in there = yanked out, no breath save.
+					local camper = campTarget
+					if occupant == camper then
+						endCamp(true)
+						catchTarget(camper)
+						rig.Model:SetAttribute("Checking", false)
+						return
+					end
+					endCamp(false)
+				end
 				if occupant then
 					if sawEnter[occupant] == spot then
 						catchTarget(occupant)
@@ -782,7 +886,8 @@ local function tick(dt: number)
 	end
 
 	mover:Step()
-	matchState("Alert", math.floor(if state == "Asleep" or state == "Stirring" or state == "FakeSleep" then alert else 100))
+	-- Scaled so the HUD ring is full exactly when she gets up (AI.WakeAt).
+	matchState("Alert", math.floor(if state == "Asleep" or state == "Stirring" or state == "FakeSleep" then math.min(100, alert / (AI.WakeAt or 88) * 100) else 100))
 end
 
 -- True if no alive player can see this spot (so a teleport isn't witnessed).
@@ -808,6 +913,13 @@ function GrandmaService:DebugWake(pos: Vector3)
 	if rig then
 		rig.Root.Anchored = false
 		wake(pos)
+	end
+end
+
+function GrandmaService:DebugAlert(value: number)
+	if rig and (state == "Asleep" or state == "Stirring") then
+		alert = math.clamp(value, 0, 100)
+		lastHeardAt = now()
 	end
 end
 
@@ -879,12 +991,21 @@ function GrandmaService:ResetForNight(night: number, nightCfg: any)
 		return
 	end
 	-- New night, new outfit (never the same twice in a row).
-	local outfit = GrandmaRig.PickOutfit(night, rig.Model:GetAttribute("Outfit"))
-	GrandmaRig.ApplyOutfit(rig, outfit)
+	-- Themed rigs (Maps-specific Grannies) can opt out with the NoOutfits attribute.
+	if not (rig.Template and rig.Template:GetAttribute("NoOutfits") == true) then
+		local outfit = GrandmaRig.PickOutfit(night, rig.Model:GetAttribute("Outfit"))
+		GrandmaRig.ApplyOutfit(rig, outfit)
+	end
 	GrandmaRig.ApplyForm(rig, nightCfg.Form)
 	bathroomDone = false
 	target = nil
 	table.clear(sawEnter)
+	endCamp()
+	table.clear(campTime)
+	for _, p in Players:GetPlayers() do
+		p:SetAttribute("HideHeat", 0)
+		p:SetAttribute("Hunted", false)
+	end
 	table.clear(chasedThisChase)
 	checkSpot = nil
 	distractPos = nil
@@ -945,18 +1066,32 @@ function GrandmaService:Start()
 		warn("[Grandma] Workspace.House missing")
 		return
 	end
-	local spot = house:FindFirstChild("GrandmaSleepSpot") :: BasePart?
-	if spot then
-		sleepSpot = spot.CFrame
-	end
-	local nodes = house:FindFirstChild("SearchNodes")
-	if nodes then
-		for _, n in nodes:GetChildren() do
-			if n:IsA("BasePart") then
-				table.insert(searchNodes, n)
+	local function bindMap(h: Instance)
+		local spot = h:FindFirstChild("GrandmaSleepSpot") :: BasePart?
+		if spot then
+			sleepSpot = spot.CFrame
+		end
+		table.clear(searchNodes)
+		table.clear(spotUsage)
+		local nodes = h:FindFirstChild("SearchNodes")
+		if nodes then
+			for _, n in nodes:GetChildren() do
+				if n:IsA("BasePart") then
+					table.insert(searchNodes, n)
+				end
 			end
 		end
 	end
+	bindMap(house)
+	shared("MapService"):OnChanged(function(h)
+		bindMap(h)
+		-- New chapter: maybe a new (map-themed) Granny; ResetForNight re-picks.
+		runPicked = false
+		-- Park her in her new chair right away (ResetForNight follows).
+		if rig then
+			rig.Model:PivotTo(sleepSpot)
+		end
+	end)
 
 	cfg = svc("MatchService"):GetNightConfig()
 	if not GrandmaService:_spawnRig(GrandmaRig.Pick(1)) then

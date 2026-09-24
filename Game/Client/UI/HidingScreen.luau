@@ -76,6 +76,13 @@ function HidingScreen.Mount(ctx: any)
 	-- ============================================================ controls (safe area)
 	local ui = UIKit.Box({ Name = "HidingUI", Size = UDim2.fromScale(1, 1), Visible = false, Parent = ctx.Overlay })
 	local hint = UIKit.Label({ Text = "Shhh…", Font = Theme.Font.Body, TextSize = Theme.Text.Header, Color = C.PaperDim, Size = UDim2.fromOffset(600, 60), Position = UDim2.new(0.5, 0, 0, 90), AnchorPoint = Vector2.new(0.5, 0), Parent = ui })
+	-- Camping meter: the longer you hide, the "stuffier" it gets; full = she comes for you.
+	-- Driven by the player attributes HideHeat (0..1) and Hunted (server: GrandmaService).
+	local GrandmaConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("Config"):WaitForChild("GrandmaConfig"))
+	local WARN_AT = (GrandmaConfig.AI and GrandmaConfig.AI.CampWarnAt) or 0.6
+	local airBox = UIKit.Box({ Name = "Air", Size = UDim2.fromOffset(420, 40), Position = UDim2.new(0.5, 0, 0, 158), AnchorPoint = Vector2.new(0.5, 0), Visible = false, Parent = ui })
+	UIKit.Label({ Text = "AIR", Font = Theme.Font.Button, TextSize = Theme.Text.Small, Color = C.PaperDim, Auto = "X", Size = UDim2.fromOffset(0, 40), Parent = airBox })
+	local airBar = UIKit.Bar({ Parent = airBox, Size = UDim2.new(1, -70, 0, 22), Position = UDim2.new(1, 0, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), Color = C.Mint })
 	local leave = UIKit.Button({ Parent = ui, Name = "Leave", Text = "LEAVE", Color = C.Bruise, Size = UDim2.fromOffset(240, 96), Position = UDim2.new(1, -40, 1, -40), AnchorPoint = Vector2.new(1, 1), OnClick = function()
 		Bus.Fire("LeaveHiding")
 	end })
@@ -155,6 +162,7 @@ function HidingScreen.Mount(ctx: any)
 			setLeaveVisible(true)
 			UIKit.Pop(leave.Instance :: any, 0.7)
 			hint.Text = "Shhh…"
+			hint.TextColor3 = C.PaperDim
 			UIKit.Pop(hint :: any, 0.8)
 		else
 			breath.Visible = false
@@ -242,6 +250,46 @@ function HidingScreen.Mount(ctx: any)
 			end
 		end)
 	end)
+	-- ============================================================ camping warning
+	local lastStage = ""
+	local function refreshAir()
+		local heat = tonumber(player:GetAttribute("HideHeat")) or 0
+		local hunted = player:GetAttribute("Hunted") == true
+		airBox.Visible = hidden and (heat >= 0.2 or hunted)
+		airBar:Set(1 - heat)
+		local stage = if hunted then "hunted" elseif heat >= 0.85 then "smell" elseif heat >= WARN_AT then "stuffy" else "calm"
+		local barColor = if stage == "calm" then C.Mint elseif stage == "stuffy" then C.Mustard else C.Blood
+		airBar.Fill.BackgroundColor3 = barColor
+		if not hidden or breathActive or stage == lastStage then
+			return
+		end
+		lastStage = stage
+		if stage == "hunted" then
+			hint.Text = "SHE'S COMING FOR YOU. GET OUT!"
+			hint.TextColor3 = C.Blood
+			UIKit.Pop(hint :: any, 1.3)
+			UIKit.Shake(hint, 10, 0.5)
+			UIState.Play("Heartbeat")
+		elseif stage == "smell" then
+			hint.Text = "She can smell you… move!"
+			hint.TextColor3 = C.Rose
+			UIKit.Shake(hint, 6, 0.3)
+		elseif stage == "stuffy" then
+			hint.Text = "It's getting stuffy in here…"
+			hint.TextColor3 = C.Mustard
+			UIKit.Pop(hint :: any, 1.1)
+		else
+			hint.Text = "Shhh…"
+			hint.TextColor3 = C.PaperDim
+		end
+	end
+	player:GetAttributeChangedSignal("HideHeat"):Connect(refreshAir)
+	player:GetAttributeChangedSignal("Hunted"):Connect(refreshAir)
+	Bus.On("HidingChanged", function()
+		lastStage = ""
+		task.defer(refreshAir)
+	end)
+
 	player:GetAttributeChangedSignal("Alive"):Connect(function()
 		if player:GetAttribute("Alive") == false then
 			setHidden(false)

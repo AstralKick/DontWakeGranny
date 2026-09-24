@@ -11,6 +11,7 @@ The place role is `shared("PlaceRole")` (`IsLobby` / `IsMatch`).
 |---|---|
 | `Phase` | `Waiting` · `Intro` (title card, 4 s) · `Night` · `Morning` (summary, 14 s) · `GameOver` (Continue window) · `Victory` · `Ended` |
 | `Night`, `Title`, `Subtitle`, `NewArea` ("" or e.g. "UPSTAIRS"), `Duration` | Current night card data |
+| `MapId`, `MapName`, `Chapter` | Active chapter map (MapConfig), e.g. "SunnyPines" / "Sunny Pines Retirement Home" |
 | `NightStart`, `NightEnd` | `workspace:GetServerTimeNow()` timestamps. The clock runs 12:00 AM → 6:00 AM (use `Format.Clock(frac, 0, 6)`) |
 | `Event` | EventConfig key or "" (the title/blurb/color come from `Config/EventConfig`) |
 | `GrandmaState` | `Asleep` `FakeSleep` `Stirring` `Waking` `Searching` `Patrolling` `Returning` `Chasing` `Attacking` `CheckingHiding` `Stalking` `Distracted` |
@@ -25,7 +26,7 @@ The place role is `shared("PlaceRole")` (`IsLobby` / `IsMatch`).
 | `Finale` (bool), `PumpkinsLit`, `PumpkinsTotal`, `FinaleOpen` | Night 31 |
 
 ## Player attributes (on each `Player`, visible to everyone)
-`Alive`, `Hidden`, `Protected`, `Escaped`, `Crouching`, `Sprinting`, `Flashlight`, `Stamina` / `MaxStamina`, `Battery` / `MaxBattery`, `CarryValue` (Candy value if banked now), `CarrySlots` / `MaxSlots`, `CarryList` (JSON array of item names), `CarryingPrize`, `Items` (JSON `{WindupToy=n, Cookie=n, FizzySoda=n}`), `Candy`, `FlashlightColor`, `SackColor`, `InCar` (lobby), `Pass_<Key>`.
+`Alive`, `Hidden`, `HideHeat` (0..1, how long you've been hiding vs the camping limit), `Hunted` (Grandma is coming for your hiding spot), `Protected`, `Escaped`, `Crouching`, `Sprinting`, `Flashlight`, `Stamina` / `MaxStamina`, `Battery` / `MaxBattery`, `CarryValue` (Candy value if banked now), `CarrySlots` / `MaxSlots`, `CarryList` (JSON array of item names), `CarryingPrize`, `Items` (JSON `{WindupToy=n, Cookie=n, FizzySoda=n}`), `Candy`, `FlashlightColor`, `SackColor`, `InCar` (lobby), `Pass_<Key>`.
 
 ## Grandma model (`workspace.Grandma`, tag `Grandma`)
 Attributes: `State` (as above), `Say` (`"line|id"` — show a speech bubble whenever it changes), `Target` (the chased player's UserId, 0 if none), `Checking` (bool, while checking a hiding spot), `Form`, `DistractTime`.
@@ -40,7 +41,7 @@ Only `Humanoid`, `HumanoidRootPart` and `Head` are guaranteed. Motor6Ds are R15-
 | `Noise` (Unreliable) | (pos, loudness, radius, sourceUserId, kind) | Ripple at the source + "!" over the source player. Kinds: Run, Creak, Break, Door, Search, Pickup, Lockpick, Toy, Cookie, Lantern, Fuse, Lurking |
 | `Caught` | (formKey, lostValue, lostCount, canRevive, freeRevive, cause) | You were caught → jumpscare → death screen |
 | `TeammateCaught` | (name, lostValue) | Teammate went down |
-| `NightSummary` | {Night, Survived, Banked, Lost, AutoBanked, Bonus, Friends, FriendMult, NextNight, NextNewArea?, Checkpoint?, Candy} | Morning screen |
+| `NightSummary` | {Night, Survived, Banked, Lost, AutoBanked, Bonus, Friends, FriendMult, NextNight, NextNewArea?, Checkpoint?, ChapterComplete?, NextChapter?, Goal?, GoalMet?, GoalBonus?, Candy} | Morning screen |
 | `LootPicked` | (name, baseValue, isPrize) | Pickup pop |
 | `Banked` | (candy, count, reason `Trunk`/`Dawn`) | Bank celebration |
 | `SearchResult` | (foundName?) | "Nothing here…" / found |

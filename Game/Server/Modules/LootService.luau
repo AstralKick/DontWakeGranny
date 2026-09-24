@@ -658,83 +658,96 @@ function LootService:Start()
 	active.Name = "LootActive"
 	active.Parent = workspace
 
-	house = workspace:WaitForChild("House", 20)
-	if house then
-		local ls = house:FindFirstChild("LootSpawns")
-		if ls then
-			for _, p in ls:GetChildren() do
-				if p:IsA("BasePart") then
-					table.insert(lootSpawns, p)
+	local function bindMap(h: Instance?)
+		house = h
+		table.clear(lootSpawns)
+		table.clear(prizeSpawns)
+		table.clear(searchables)
+		trunk = nil
+		prizeSpawnPart = nil
+		active:ClearAllChildren()
+		if house then
+			local ls = house:FindFirstChild("LootSpawns")
+			if ls then
+				for _, p in ls:GetChildren() do
+					if p:IsA("BasePart") then
+						table.insert(lootSpawns, p)
+					end
 				end
 			end
-		end
-		local ps = house:FindFirstChild("PrizeSpawns")
-		if ps then
-			for _, p in ps:GetChildren() do
-				if p:IsA("BasePart") then
-					table.insert(prizeSpawns, p)
+			local ps = house:FindFirstChild("PrizeSpawns")
+			if ps then
+				for _, p in ps:GetChildren() do
+					if p:IsA("BasePart") then
+						table.insert(prizeSpawns, p)
+					end
 				end
 			end
+			local car = house:FindFirstChild("MomsCar")
+			trunk = car and car:FindFirstChild("Trunk", true) :: BasePart?
 		end
-		local car = house:FindFirstChild("MomsCar")
-		trunk = car and car:FindFirstChild("Trunk", true) :: BasePart?
-	end
-	for _, part in CollectionService:GetTagged("Searchable") do
-		if part:IsA("BasePart") then
-			table.insert(searchables, part)
-			hookSearchable(part)
+		for _, part in CollectionService:GetTagged("Searchable") do
+			if part:IsA("BasePart") and house and part:IsDescendantOf(house) then
+				table.insert(searchables, part)
+				hookSearchable(part)
+			end
+		end
+	
+		if trunk then
+			local prompt = Instance.new("ProximityPrompt")
+			prompt.ActionText = "Stash Loot"
+			prompt.ObjectText = "Mom's Trunk"
+			prompt.HoldDuration = 0.4
+			prompt.MaxActivationDistance = 12
+			prompt.RequiresLineOfSight = false
+			prompt.Style = Enum.ProximityPromptStyle.Custom
+			prompt:SetAttribute("Kind", "Bank")
+			-- Prompts only show when on screen: hang it just above the open boot at eye level,
+			-- not on the trunk part (which can sit low/inside the car body).
+			local anchor = Instance.new("Attachment")
+			anchor.Name = "StashPromptAnchor"
+			anchor.Parent = trunk
+			local rp = RaycastParams.new()
+			rp.FilterType = Enum.RaycastFilterType.Exclude
+			rp.FilterDescendantsInstances = { trunk.Parent :: Instance }
+			local ground = workspace:Raycast(trunk.Position, Vector3.new(0, -20, 0), rp)
+			local groundY = if ground then ground.Position.Y else trunk.Position.Y - 2
+			anchor.WorldPosition = Vector3.new(trunk.Position.X, groundY + 4.3, trunk.Position.Z)
+			prompt.Parent = anchor
+			-- A soft glow so players can find the boot in the dark yard.
+			local glow = Instance.new("PointLight")
+			glow.Color = Color3.fromRGB(156, 197, 161)
+			glow.Range = 9
+			glow.Brightness = 0.7
+			glow.Shadows = false
+			glow.Parent = anchor
+			prompt.Triggered:Connect(function(p)
+				if not validPicker(p, trunk, 14) then
+					return
+				end
+				if #(carry[p] or {}) == 0 then
+					Notify.Toast(p, "Nothing to stash yet — go steal something!", "Info")
+					return
+				end
+				Sfx.Play("Bank", trunk)
+				LootService:BankAll(p, "Trunk")
+				if (DataService:Get(p, "HighestNight") or 0) == 0 then
+					shared("Analytics").Onboarding(p, "FirstStash")
+				end
+			end)
 		end
 	end
-
-	if trunk then
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.ActionText = "Stash Loot"
-		prompt.ObjectText = "Mom's Trunk"
-		prompt.HoldDuration = 0.4
-		prompt.MaxActivationDistance = 12
-		prompt.RequiresLineOfSight = false
-		prompt.Style = Enum.ProximityPromptStyle.Custom
-		prompt:SetAttribute("Kind", "Bank")
-		-- Prompts only show when on screen: hang it just above the open boot at eye level,
-		-- not on the trunk part (which can sit low/inside the car body).
-		local anchor = Instance.new("Attachment")
-		anchor.Name = "StashPromptAnchor"
-		anchor.Parent = trunk
-		local rp = RaycastParams.new()
-		rp.FilterType = Enum.RaycastFilterType.Exclude
-		rp.FilterDescendantsInstances = { trunk.Parent :: Instance }
-		local ground = workspace:Raycast(trunk.Position, Vector3.new(0, -20, 0), rp)
-		local groundY = if ground then ground.Position.Y else trunk.Position.Y - 2
-		anchor.WorldPosition = Vector3.new(trunk.Position.X, groundY + 4.3, trunk.Position.Z)
-		prompt.Parent = anchor
-		-- A soft glow so players can find the boot in the dark yard.
-		local glow = Instance.new("PointLight")
-		glow.Color = Color3.fromRGB(156, 197, 161)
-		glow.Range = 9
-		glow.Brightness = 0.7
-		glow.Shadows = false
-		glow.Parent = anchor
-		prompt.Triggered:Connect(function(p)
-			if not validPicker(p, trunk, 14) then
-				return
-			end
-			if #(carry[p] or {}) == 0 then
-				Notify.Toast(p, "Nothing to stash yet — go steal something!", "Info")
-				return
-			end
-			Sfx.Play("Bank", trunk)
-			LootService:BankAll(p, "Trunk")
-			if (DataService:Get(p, "HighestNight") or 0) == 0 then
-				shared("Analytics").Onboarding(p, "FirstStash")
-			end
-		end)
-	end
+	bindMap(workspace:WaitForChild("House", 20))
+	shared("MapService"):OnChanged(bindMap)
 
 	local function init(p: Player)
 		carry[p] = {}
 		task.spawn(function()
-			DataService:WaitForData(p, 20)
-			refreshAttrs(p)
+			-- Base values right away (the HUD needs MaxSlots etc.), upgrades once the save loads.
+			pcall(refreshAttrs, p)
+			if DataService:WaitForData(p, 120) then
+				refreshAttrs(p)
+			end
 		end)
 	end
 	Players.PlayerAdded:Connect(init)

@@ -249,8 +249,28 @@ local function onCharacter(p: Player, char: Model)
 	end)
 end
 
+local function applyUpgrades(p: Player)
+	local s = states[p]
+	if not s then
+		return
+	end
+	local upgrades = DataService:Get(p, "Upgrades") or {}
+	local lungs = (upgrades.StrongLungs or 0) * EconomyConfig.Upgrades.StrongLungs.PerLevel
+	local battery = EconomyConfig.FlashlightBattery * (1 + (upgrades.Batteries or 0) * EconomyConfig.Upgrades.Batteries.PerLevel)
+	s.MaxStamina = MOVE.StaminaMax + lungs
+	s.Stamina = math.max(s.Stamina, s.MaxStamina)
+	s.MaxBattery = battery
+	s.Battery = math.max(s.Battery, battery)
+	p:SetAttribute("MaxStamina", s.MaxStamina)
+	p:SetAttribute("MaxBattery", battery)
+	p:SetAttribute("SoftSocks", upgrades.SoftSocks or 0)
+end
+
 local function initPlayer(p: Player)
-	if not DataService:WaitForData(p, 20) then
+	-- Never wait on the save to give someone working controls: after a teleport the profile
+	-- can take a while (the lobby releases its session lock first). Start with base stats and
+	-- apply upgrades the moment the data arrives.
+	if states[p] then
 		return
 	end
 	local upgrades = DataService:Get(p, "Upgrades") or {}
@@ -387,15 +407,19 @@ function PlayerStateService:Start()
 	end
 	setupCollisionGroups()
 
-	local house = workspace:WaitForChild("House", 15)
-	local rooms = house and house:FindFirstChild("Rooms")
-	if rooms then
-		for _, r in rooms:GetChildren() do
-			if r:IsA("BasePart") then
-				table.insert(roomParts, r)
+	local function bindMap(house: Instance?)
+		table.clear(roomParts)
+		local rooms = house and house:FindFirstChild("Rooms")
+		if rooms then
+			for _, r in rooms:GetChildren() do
+				if r:IsA("BasePart") then
+					table.insert(roomParts, r)
+				end
 			end
 		end
 	end
+	bindMap(workspace:WaitForChild("House", 15))
+	shared("MapService"):OnChanged(bindMap)
 
 	SetSprint.OnServerEvent:Connect(function(p, on)
 		local s = states[p]
@@ -418,6 +442,7 @@ function PlayerStateService:Start()
 	end)
 
 	Players.PlayerAdded:Connect(initPlayer)
+	DataService.PlayerLoaded:Connect(applyUpgrades)
 	for _, p in Players:GetPlayers() do
 		task.spawn(initPlayer, p)
 	end

@@ -33,7 +33,18 @@ General rules for both places:
 | `House.PumpkinSpots` | Folder of 5 Parts | `Area` | Night 31 jack-o'-lantern placements, at least one per area |
 | `House.Corruption` | Folder with subfolders `1`,`2`,`3`,`4` | — | Decor that should only exist at corruption ≥ N (the service shows/hides it) |
 
-Areas unlock by night: Ground (1), Upstairs (6), Basement (11), Attic (16). Rooms in a locked area must be unreachable because of the Barriers.
+### Multiple maps (chapters)
+The run has 6 maps, one per chapter (see `Game/Config/MapConfig.luau`). **Every map follows this exact House contract**; the only differences:
+- **Container:** the original house stays at `Workspace.House` (MapId `GrandmasHouse`). Every other map is a Model at `Workspace.Maps.<MapId>`, built far from the others: X offset = 1500 × chapter index (BackGarden 1500, SunnyPines 3000, StMildreds 4500, HarvestFair 6000, NightmareHouse 7500), at the same Y as the house. Z is around 0.
+- **Model attributes:**
+  - `MapId` (string)
+  - `DisplayName` (string)
+  - optional `AreaName_Upstairs` / `AreaName_Basement` / `AreaName_Attic` (display names for the zones)
+- **Zones:** the Area names stay `Ground` / `Upstairs` / `Basement` / `Attic`, but in a non-house map they're just zones 1–4 (e.g. Garden: Upstairs = the greenhouse). They unlock on nights 2, 3 and 4 of the chapter, and each locked zone needs a Barrier.
+- **Runtime:** MapService moves the inactive maps to ServerStorage and renames the active one to `House` in Workspace. Nothing may depend on world coordinates.
+- **Pumpkins:** `PumpkinSpots` (5) are only required in `NightmareHouse` (the Night 31 finale lives there).
+
+Areas unlock by night of the chapter (see MapConfig). Grandma's House: Ground (1), Upstairs (3), Basement (4), Attic (5). Rooms in a locked area must be unreachable because of the Barriers.
 
 The front yard is fenced (no exit to the void). There's grass or terrain ground and a night sky. `Lighting` is overridden at runtime by EnvironmentService, so the builder only sets a sensible base look for editing.
 
