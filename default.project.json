@@ -24,7 +24,8 @@
 
       "VIDK": {
         "$className": "Folder",
-        "LMCurrency": { "$path": "VIDK/Client/Modules/LMCurrency.luau" }
+        "LMCurrency": { "$path": "VIDK/Client/Modules/LMCurrency.luau" },
+        "LMSocial": { "$path": "VIDK/Client/Modules/LMSocial.luau" }
         
       },
 
@@ -53,7 +54,8 @@
           "$className": "Folder",
 
           "SMProfile": { "$path": "VIDK/Server/Modules/SMProfile.luau" },
-          "SMCurrency": { "$path": "VIDK/Server/Modules/SMCurrency.luau" }
+          "SMCurrency": { "$path": "VIDK/Server/Modules/SMCurrency.luau" },
+          "SMSocial": { "$path": "VIDK/Server/Modules/SMSocial.luau" }
 
       }
     },
